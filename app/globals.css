@@ -9,6 +9,9 @@ button { font: inherit; }
 
 .vinyl-room { position: relative; width: 100vw; height: 100dvh; min-height: 550px; overflow: hidden; background: #261d1b; }
 .scene-mount, .room-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.wall-drag-preview { position: fixed; z-index: 9; width: 112px; transform: translate(-50%, -115%); pointer-events: none; display: flex; flex-direction: column; align-items: center; gap: 5px; filter: drop-shadow(0 14px 20px rgba(0,0,0,.42)); }
+.wall-drag-preview img, .wall-drag-preview > span { display: block; width: 92px; height: 92px; object-fit: cover; background: #eeeae4; border: 2px solid rgba(255,236,216,.8); border-radius: 3px; transform: rotate(-5deg); }
+.wall-drag-preview small { padding: 5px 7px; border-radius: 5px; background: rgba(29,19,18,.88); color: #ffe6ce; font-size: 8px; font-weight: 700; letter-spacing: .08em; white-space: nowrap; }
 .room-vignette { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(17,10,10,.6), transparent 14%, transparent 73%, rgba(15,9,9,.62)), radial-gradient(ellipse at 50% 42%, transparent 40%, rgba(24,10,13,.43) 100%); }
 .webgl-fallback { position: absolute; inset: 0; display: grid; place-items: center; font: 17px Georgia, serif; color: #eee2d6; }
 
@@ -25,18 +28,33 @@ button { font: inherit; }
 .hint-line { display: block; width: 33px; height: 1px; background: rgba(255,228,203,.5); }
 
 .room-footer { position: absolute; z-index: 5; left: clamp(24px, 4vw, 72px); right: clamp(24px, 4vw, 72px); bottom: clamp(22px, 4vh, 42px); display: flex; align-items: end; justify-content: space-between; gap: 24px; pointer-events: none; }
-.current-record { min-width: 0; max-width: 420px; display: flex; align-items: center; gap: 14px; padding: 13px 15px; border: 1px solid rgba(255,235,215,.2); border-radius: 14px; color: #f7eee5; background: rgba(23,17,16,.68); box-shadow: 0 12px 42px rgba(0,0,0,.2); backdrop-filter: blur(18px); pointer-events: auto; }
+.current-record { width: min(365px, calc(100vw - 110px)); min-width: 0; padding: 12px 13px; border: 1px solid rgba(255,235,215,.2); border-radius: 14px; color: #f7eee5; background: rgba(23,17,16,.68); box-shadow: 0 12px 42px rgba(0,0,0,.2); backdrop-filter: blur(18px); pointer-events: auto; transition: width .22s ease, background .22s ease; }
+.current-record.expanded { width: min(390px, calc(100vw - 110px)); background: rgba(23,17,16,.89); }
+.current-record-main { display: flex; align-items: center; gap: 8px; }
+.record-expand { min-width: 0; flex: 1; display: flex; align-items: center; gap: 13px; padding: 0; border: 0; color: inherit; background: transparent; text-align: left; cursor: pointer; }
+.record-expand:hover .record-chevron { color: #fff1e3; transform: translateY(-2px); }
+.record-copy { min-width: 0; flex: 1; }
+.record-chevron { flex: 0 0 auto; color: rgba(247,238,229,.48); transition: color .2s, transform .2s; }
 .record-indicator { flex: 0 0 40px; width: 40px; height: 40px; border-radius: 50%; background: repeating-radial-gradient(circle, #242222 0 2px, #36312d 3px 4px); box-shadow: inset 0 0 0 3px #2b2523; display: grid; place-items: center; }
 .record-indicator.spinning { animation: spin 2.7s linear infinite; }
 .record-indicator span { width: 13px; height: 13px; background: #c46e4b; border: 2px solid #d9ac87; border-radius: 50%; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.current-record > div:nth-child(2) { min-width: 0; }
-.current-record small { display: block; margin-bottom: 4px; color: #d8a381; font-size: 8px; font-weight: 700; letter-spacing: .17em; }
-.current-record strong { display: block; max-width: 230px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font: 17px/1.08 Georgia, serif; }
-.current-record > div:nth-child(2) > span { display: block; max-width: 230px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px; color: rgba(247,238,229,.62); font-size: 10px; }
-.transport-button { flex: 0 0 35px; width: 35px; height: 35px; display: grid; place-items: center; border: 1px solid rgba(255,241,224,.36); border-radius: 50%; color: #faede2; background: rgba(255,255,255,.09); cursor: pointer; margin-left: 12px; }
+.record-copy small { display: block; margin-bottom: 4px; color: #d8a381; font-size: 8px; font-weight: 700; letter-spacing: .17em; }
+.record-copy strong { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font: 17px/1.08 Georgia, serif; }
+.record-copy > span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px; color: rgba(247,238,229,.62); font-size: 10px; }
+.transport-button { flex: 0 0 35px; width: 35px; height: 35px; display: grid; place-items: center; border: 1px solid rgba(255,241,224,.36); border-radius: 50%; color: #faede2; background: rgba(255,255,255,.09); cursor: pointer; }
 .transport-button:hover:not(:disabled) { background: rgba(235,167,124,.3); }
 .transport-button:disabled { opacity: .4; cursor: default; }
+.player-expanded { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,238,221,.14); }
+.player-time { display: flex; justify-content: space-between; color: rgba(247,238,229,.55); font-size: 9px; font-variant-numeric: tabular-nums; }
+.player-seek { display: block; width: 100%; height: 14px; margin: 4px 0 8px; accent-color: #d99571; cursor: pointer; }
+.player-seek:disabled { opacity: .35; cursor: default; }
+.player-controls { display: flex; align-items: center; justify-content: space-between; }
+.player-controls button { position: relative; width: 34px; height: 34px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; color: rgba(247,238,229,.75); background: transparent; cursor: pointer; }
+.player-controls button:hover:not(:disabled), .player-controls button.active { color: #ffbc91; background: rgba(239,163,116,.12); }
+.player-controls button:disabled { opacity: .35; cursor: default; }
+.player-controls .player-main-control { width: 38px; height: 38px; border: 1px solid rgba(255,241,224,.35); color: #fff0e5; background: rgba(255,255,255,.09); }
+.repeat-badge { position: absolute; right: 2px; bottom: 1px; display: grid; place-items: center; width: 11px; height: 11px; border-radius: 50%; color: #221613; background: #ffbc91; font-size: 8px; font-weight: 800; }
 .arrange-button { height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 17px; border: 1px solid rgba(255,235,215,.35); border-radius: 999px; color: #fff2e5; background: rgba(23,17,16,.67); box-shadow: 0 12px 42px rgba(0,0,0,.2); backdrop-filter: blur(14px); font-size: 10px; font-weight: 700; letter-spacing: .12em; cursor: pointer; pointer-events: auto; white-space: nowrap; }
 .arrange-button:hover, .arrange-button.active { background: #b85a42; border-color: #d99173; }
 
@@ -100,12 +118,13 @@ button { font: inherit; }
   .room-hint { top: 14%; font-size: 7px; letter-spacing: .1em; }
   .hint-line { width: 14px; }
   .room-footer { left: 14px; right: 14px; bottom: 17px; gap: 7px; }
-  .current-record { padding: 8px; gap: 8px; }
+  .current-record { padding: 8px; }
+  .record-expand { gap: 8px; }
   .record-indicator { flex-basis: 31px; width: 31px; height: 31px; }
-  .current-record strong { font-size: 13px; max-width: 116px; }
-  .current-record > div:nth-child(2) > span { font-size: 8px; max-width: 116px; }
-  .current-record small { font-size: 6px; }
-  .transport-button { width: 27px; height: 27px; flex-basis: 27px; margin-left: 0; }
+  .record-copy strong { font-size: 13px; }
+  .record-copy > span { font-size: 8px; }
+  .record-copy small { font-size: 6px; }
+  .transport-button { width: 27px; height: 27px; flex-basis: 27px; }
   .arrange-button { height: 41px; width: 41px; justify-content: center; padding: 0; font-size: 0; }
   .library-panel { top: 75px; right: 12px; bottom: 72px; padding: 16px; }
   .room-toast { white-space: normal; bottom: 73px; width: max-content; }
