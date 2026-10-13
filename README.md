@@ -1,8 +1,12 @@
 # Vinyl Room
 
+![Vinyl Room with empty album shelves](docs/vinyl-room-empty.png)
+
 A personal, interactive 3D room for your records. A fixed camera frames a wall with eight album spots, a wide wooden console, two speakers, and a turntable. The room fills the browser window without page scrolling.
 
 The album spots start empty. Search Spotify's catalog to put any album on your wall—no need to save it to your Spotify library. Drag a cover onto another wall spot to move or swap albums. Click a wall album to browse its track list without interrupting the current song; playback changes only when you choose a new track. Click outside the track list to close it.
+
+![Vinyl Room with albums arranged on the wall](docs/vinyl-room-collection.png)
 
 ## Download for macOS
 
