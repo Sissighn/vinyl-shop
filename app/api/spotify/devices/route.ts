@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { spotifyFetch } from "@/lib/spotify";
+import { spotifyError } from "@/lib/spotify-http";
 
 type SpotifyDevice = {
   id: string | null;
@@ -11,8 +12,7 @@ type SpotifyDevice = {
 
 export async function GET() {
   const response = await spotifyFetch("/me/player/devices");
-  if (!response) return NextResponse.json({ error: "Not connected" }, { status: 401 });
-  if (!response.ok) return NextResponse.json({ error: "Could not load Spotify devices" }, { status: response.status });
+  if (!response?.ok) return spotifyError(response, "Could not load Spotify devices.");
 
   const data = (await response.json()) as { devices?: SpotifyDevice[] };
   return NextResponse.json({
