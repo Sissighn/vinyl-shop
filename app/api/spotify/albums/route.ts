@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { spotifyFetch } from "@/lib/spotify";
+import { spotifyError } from "@/lib/spotify-http";
 import { toRoomAlbum, type SpotifyCatalogAlbum } from "@/lib/spotify-album";
 
 // Restore walls saved by the previous version, which stored only Spotify IDs.
@@ -10,12 +11,8 @@ export async function GET(request: Request) {
   }
 
   const responses = await Promise.all(ids.map((id) => spotifyFetch(`/albums/${id}`)));
-  if (responses.some((response) => response === null)) {
-    return NextResponse.json({ error: "Not connected" }, { status: 401 });
-  }
-  if (responses.some((response) => response && !response.ok && response.status !== 404)) {
-    return NextResponse.json({ error: "Could not load albums" }, { status: 502 });
-  }
+  const failed = responses.find((response) => !response || (!response.ok && response.status !== 404));
+  if (failed !== undefined) return spotifyError(failed, "Could not load albums.");
 
   const albums = await Promise.all(responses.map(async (response) => {
     if (!response?.ok) return null;
