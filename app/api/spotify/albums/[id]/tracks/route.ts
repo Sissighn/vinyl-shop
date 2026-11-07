@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { spotifyFetch } from "@/lib/spotify";
+import { spotifyError } from "@/lib/spotify-http";
 
 type SpotifyTrack = {
   id: string;
@@ -25,8 +26,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   }
 
   const response = await spotifyFetch(`/albums/${id}/tracks?limit=50&offset=${offset}`);
-  if (!response) return NextResponse.json({ error: "Not connected" }, { status: 401 });
-  if (!response.ok) return NextResponse.json({ error: "Could not load tracks" }, { status: response.status });
+  if (!response?.ok) return spotifyError(response, "Could not load tracks.");
 
   const page = (await response.json()) as SpotifyTracksPage;
   return NextResponse.json({
