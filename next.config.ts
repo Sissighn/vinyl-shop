@@ -1,7 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  ...(process.env.VINYL_DESKTOP_BUILD === "1" ? { output: "standalone" as const } : {}),
+  turbopack: { root: process.cwd() },
+  ...(process.env.VINYL_DESKTOP_BUILD === "1" ? {
+    output: "standalone" as const,
+    distDir: ".next-desktop",
+    typescript: { tsconfigPath: "tsconfig.desktop.json" },
+  } : {}),
 };
 
 export default nextConfig;
