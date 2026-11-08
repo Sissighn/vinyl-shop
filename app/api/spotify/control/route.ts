@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { spotifyFetch } from "@/lib/spotify";
+import { readSmallJson, spotifyError, trustedMutation } from "@/lib/spotify-http";
 
 const controlRequest = z.discriminatedUnion("action", [
   z.object({ action: z.literal("next"), deviceId: z.string().min(1).max(100) }),
@@ -11,7 +12,9 @@ const controlRequest = z.discriminatedUnion("action", [
 ]);
 
 export async function PUT(request: Request) {
-  const parsed = controlRequest.safeParse(await request.json().catch(() => null));
+  const denied = trustedMutation(request);
+  if (denied) return denied;
+  const parsed = controlRequest.safeParse(await readSmallJson(request));
   if (!parsed.success) return NextResponse.json({ error: "Invalid playback control" }, { status: 400 });
 
   const control = parsed.data;
@@ -39,7 +42,6 @@ export async function PUT(request: Request) {
   }
 
   const response = await spotifyFetch(`${path}?${query}`, { method });
-  if (!response) return NextResponse.json({ error: "Not connected" }, { status: 401 });
-  if (!response.ok) return NextResponse.json({ error: "Spotify playback control failed" }, { status: response.status });
+  if (!response?.ok) return spotifyError(response, "Spotify playback control failed.");
   return new NextResponse(null, { status: 204 });
 }
