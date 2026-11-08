@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
           code_verifier: attempt.verifier,
         }),
         cache: "no-store",
+        signal: AbortSignal.timeout(8_000),
       });
       if (!tokenResponse.ok) throw new Error("Spotify sign-in failed.");
       finishDesktopAuth(state, { tokens: await tokenResponse.json() as TokenResponse });
@@ -44,7 +45,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/?spotify=error", request.url));
   }
 
-  const tokenResponse = await fetch("https://accounts.spotify.com/api/token", {
+  let tokenResponse: Response;
+  try {
+    tokenResponse = await fetch("https://accounts.spotify.com/api/token", {
     method: "POST",
     headers: {
       authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
@@ -56,7 +59,11 @@ export async function GET(request: NextRequest) {
       redirect_uri: spotifyRedirectUri(request.url),
     }),
     cache: "no-store",
-  });
+    signal: AbortSignal.timeout(8_000),
+    });
+  } catch {
+    return NextResponse.redirect(new URL("/?spotify=error", request.url));
+  }
 
   if (!tokenResponse.ok) return NextResponse.redirect(new URL("/?spotify=error", request.url));
   const tokens = (await tokenResponse.json()) as TokenResponse;
