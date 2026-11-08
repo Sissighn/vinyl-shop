@@ -7,6 +7,7 @@
       "esnext"
     ],
     "allowJs": true,
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
@@ -36,12 +37,14 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
   "exclude": [
     "node_modules",
-    "examples"
+    "examples",
+    ".next",
+    ".next-desktop",
+    "dist",
+    ".desktop"
   ]
 }
