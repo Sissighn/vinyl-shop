@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { spotifyFetch } from "@/lib/spotify";
+import { spotifyError } from "@/lib/spotify-http";
 
 export async function GET() {
   const response = await spotifyFetch("/me/player");
-  if (!response) return NextResponse.json({ error: "Not connected" }, { status: 401 });
-  if (response.status === 204) return NextResponse.json({ deviceId: null, isPlaying: false });
-  if (!response.ok) return NextResponse.json({ error: "Could not read Spotify playback" }, { status: response.status });
+  if (response?.status === 204) return NextResponse.json({ deviceId: null, isPlaying: false });
+  if (!response?.ok) return spotifyError(response, "Could not read Spotify playback.");
 
   const state = (await response.json()) as {
     device?: { id?: string | null } | null;
