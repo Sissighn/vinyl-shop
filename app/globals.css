@@ -7,10 +7,10 @@ body { background: #261d1b; color: #f7eee6; font-family: "Avenir Next", Avenir, 
 button, a { -webkit-tap-highlight-color: transparent; }
 button { font: inherit; }
 
-.vinyl-room { position: relative; width: 100vw; height: 100dvh; min-height: 550px; overflow: hidden; background: #261d1b; }
+.vinyl-room { position: relative; width: 100vw; height: 100dvh; overflow: hidden; background: #261d1b; }
 .scene-mount, .room-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .wall-drag-preview { position: fixed; z-index: 9; width: 112px; transform: translate(-50%, -115%); pointer-events: none; display: flex; flex-direction: column; align-items: center; gap: 5px; filter: drop-shadow(0 14px 20px rgba(0,0,0,.42)); }
-.wall-drag-preview img, .wall-drag-preview > span { display: block; width: 92px; height: 92px; object-fit: cover; background: #eeeae4; border: 2px solid rgba(255,236,216,.8); border-radius: 3px; transform: rotate(-5deg); }
+.wall-drag-preview img, .wall-drag-preview > span { display: block; width: 92px; height: 92px; object-fit: contain; background: #eeeae4; border: 2px solid rgba(255,236,216,.8); border-radius: 4px; }
 .wall-drag-preview small { padding: 5px 7px; border-radius: 5px; background: rgba(29,19,18,.88); color: #ffe6ce; font-size: 8px; font-weight: 700; letter-spacing: .08em; white-space: nowrap; }
 .room-vignette { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(17,10,10,.6), transparent 14%, transparent 73%, rgba(15,9,9,.62)), radial-gradient(ellipse at 50% 42%, transparent 40%, rgba(24,10,13,.43) 100%); }
 .webgl-fallback { position: absolute; inset: 0; display: grid; place-items: center; font: 17px Georgia, serif; color: #eee2d6; }
@@ -23,7 +23,12 @@ button { font: inherit; }
 .connect-link:hover { background: rgba(191,86,51,.35); border-color: rgba(255,227,198,.55); }
 .spotify-symbol { font-size: 22px; line-height: 7px; transform: rotate(-12deg); color: #9bc891; }
 .spotify-status { color: #ccdfc6; max-width: min(35vw, 330px); overflow: hidden; text-overflow: ellipsis; }
-.spotify-status span { width: 7px; height: 7px; border-radius: 50%; background: #82c984; box-shadow: 0 0 12px #82c984; }
+.spotify-status .status-dot { flex: 0 0 7px; width: 7px; height: 7px; border-radius: 50%; background: #82c984; box-shadow: 0 0 12px #82c984; }
+.spotify-status img { display: block; flex: 0 0 80px; width: 80px; height: 22px; }
+.spotify-status > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.spotify-connection { justify-self: end; display: flex; align-items: center; gap: 9px; min-width: 0; }
+.spotify-disconnect { color: rgba(255,238,221,.68); border: 0; background: transparent; font-size: 10px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.spotify-disconnect:hover, .spotify-disconnect:focus-visible { color: #fff0e1; }
 .room-hint { position: absolute; z-index: 4; top: 15.1%; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 15px; color: rgba(255,239,222,.8); font-size: 9px; font-weight: 650; letter-spacing: .2em; white-space: nowrap; text-shadow: 0 2px 12px #2c1110; }
 .hint-line { display: block; width: 33px; height: 1px; background: rgba(255,228,203,.5); }
 
@@ -72,12 +77,11 @@ button { font: inherit; }
 .panel-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; border: 1px dashed rgba(255,234,214,.17); border-radius: 12px; padding: 28px; text-align: center; color: #e9c9b5; }
 .panel-empty p { margin: 0; font: 16px/1.45 Georgia, serif; }
 .panel-empty a { display: inline-flex; align-items: center; gap: 6px; color: #ffbd92; font-size: 10px; text-decoration: none; }
-.panel-albums { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; overflow: hidden; flex: 1; align-content: start; }
+.panel-albums { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; min-height: 0; overflow-x: hidden; overflow-y: auto; flex: 1; align-content: start; padding-right: 4px; scrollbar-width: thin; scrollbar-color: rgba(216,154,120,.52) transparent; }
 .panel-albums button { min-width: 0; border: 0; padding: 0; background: transparent; color: #f1e7dd; cursor: pointer; text-align: left; }
-.panel-albums img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; background: #eeeae4; border-radius: 3px; transition: transform .2s; }
-.panel-cover-placeholder { display: block; width: 100%; aspect-ratio: 1; background: #eeeae4; border-radius: 3px; }
-.panel-albums button:hover img { transform: translateY(-3px); }
-.panel-albums span { display: block; margin-top: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; }
+.panel-albums img { display: block; width: 100%; aspect-ratio: 1; object-fit: contain; background: #eeeae4; border-radius: 4px; }
+.panel-cover-placeholder { display: block; width: 100%; aspect-ratio: 1; background: #eeeae4; border-radius: 4px; }
+.panel-albums button:hover img { outline: 1px solid rgba(255,228,203,.65); }
 .panel-albums small { display: block; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(255,238,222,.55); font-size: 8px; }
 .panel-pagination { display: flex; align-items: center; justify-content: center; gap: 18px; padding-top: 16px; color: #cab4a6; font-size: 10px; }
 .panel-pagination button { display: grid; place-items: center; width: 26px; height: 26px; border: 1px solid rgba(255,234,213,.2); border-radius: 50%; color: #f9e8d9; background: transparent; cursor: pointer; }
@@ -85,7 +89,7 @@ button { font: inherit; }
 .album-panel { width: min(390px, calc(100vw - 44px)); }
 .album-panel .panel-heading h2 { max-width: 305px; font-size: 23px; line-height: 1.15; }
 .album-meta { display: flex; align-items: center; gap: 11px; margin-top: 18px; }
-.album-meta img, .album-meta-placeholder { display: block; flex: 0 0 48px; width: 48px; height: 48px; object-fit: cover; border-radius: 3px; background: #eeeae4; }
+.album-meta img, .album-meta-placeholder { display: block; flex: 0 0 48px; width: 48px; height: 48px; object-fit: contain; border-radius: 4px; background: #eeeae4; }
 .album-meta div { min-width: 0; }
 .album-meta span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #f4e4d6; font-size: 12px; }
 .album-meta small { display: block; margin-top: 5px; color: #c68f72; font-size: 8px; font-weight: 700; letter-spacing: .15em; }
@@ -107,7 +111,9 @@ button { font: inherit; }
 .album-load-more { display: block; width: 100%; margin-top: 12px; padding: 9px; border: 1px solid rgba(255,234,214,.22); border-radius: 8px; color: #f1c6ad; background: rgba(255,255,255,.03); font-size: 10px; cursor: pointer; }
 .album-load-more:disabled { opacity: .5; cursor: default; }
 .album-track-error { color: #f4b7a2; font-size: 11px; }
-.room-toast { position: absolute; z-index: 10; left: 50%; bottom: 107px; transform: translateX(-50%); max-width: calc(100vw - 32px); display: flex; align-items: center; gap: 16px; border: 1px solid rgba(255,225,197,.3); border-radius: 10px; padding: 12px 15px; background: rgba(36,25,24,.92); color: #fff2e5; box-shadow: 0 10px 30px rgba(0,0,0,.25); font-size: 11px; white-space: nowrap; cursor: pointer; }
+.room-toast { position: absolute; z-index: 10; left: 50%; bottom: 107px; transform: translateX(-50%); max-width: calc(100vw - 32px); display: flex; align-items: center; gap: 16px; border: 1px solid rgba(255,225,197,.3); border-radius: 10px; padding: 12px 15px; background: rgba(36,25,24,.92); color: #fff2e5; box-shadow: 0 10px 30px rgba(0,0,0,.25); font-size: 11px; white-space: nowrap; }
+.room-toast button { flex: 0 0 auto; display: grid; place-items: center; width: 25px; height: 25px; border: 0; border-radius: 5px; color: inherit; background: transparent; cursor: pointer; }
+.room-toast button:hover { background: rgba(255,255,255,.12); }
 
 @media (max-width: 700px) {
   .vinyl-room { min-height: 0; }
@@ -131,3 +137,99 @@ button { font: inherit; }
 }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; } }
+
+/* The room canvas remains pointer driven; these projected controls make every wall spot keyboard reachable. */
+:where(button, a, input, select):focus-visible { outline: 2px solid #ffd0a8; outline-offset: 3px; }
+.scene-loading { position: absolute; inset: 0; display: grid; place-items: center; color: #f3ddca; background: radial-gradient(circle at 72% 32%, #945344, transparent 48%), linear-gradient(130deg, #422c2a, #241819); font: 18px Georgia, serif; }
+.room-attribution { position: absolute; z-index: 4; left: 50%; bottom: 30px; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; color: #f3d9c7; font-size: 10px; font-weight: 700; letter-spacing: .12em; white-space: nowrap; text-shadow: 0 1px 8px #1e1110; }
+.room-attribution img { width: 80px; height: 22px; }
+.wall-keyboard { position: absolute; z-index: 2; inset: 0; pointer-events: none; }
+.wall-keyboard-slot { position: absolute; display: block; padding: 0; border: 0; border-radius: 4px; background: transparent; pointer-events: none; }
+.wall-keyboard-slot:focus-visible, .wall-keyboard-slot[aria-pressed="true"] { outline: 3px solid #ffcb9a; outline-offset: 4px; background: rgba(255,203,154,.08); box-shadow: 0 0 0 7px rgba(39,21,18,.42); }
+.wall-keyboard.fallback { inset: 21% 12% auto; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; pointer-events: auto; }
+.wall-keyboard.fallback .wall-keyboard-slot { position: static; width: auto !important; height: 85px !important; padding: 10px; border: 1px solid #d49d7c; color: #f4e8dc; background: rgba(33,23,22,.82); pointer-events: auto; font-size: 12px; }
+.webgl-fallback { align-items: start; padding-top: 10%; }
+
+.setup-guide { position: absolute; z-index: 4; right: clamp(24px, 4vw, 72px); bottom: 98px; width: min(315px, calc(100vw - 48px)); padding: 19px 21px 16px; border: 1px solid rgba(255,231,208,.25); border-radius: 16px; color: #f4e8de; background: rgba(31,21,20,.88); box-shadow: 0 18px 48px rgba(0,0,0,.28); backdrop-filter: blur(16px); }
+.setup-guide small { color: #e7aa83; font-size: 10px; font-weight: 750; letter-spacing: .15em; }
+.setup-guide h2 { margin: 7px 0 10px; font: 23px/1.1 Georgia, serif; }
+.setup-guide ol { margin: 0 0 13px; padding-left: 19px; color: #f0d6c5; font-size: 12px; line-height: 1.55; }
+.setup-guide li + li { margin-top: 5px; }
+.setup-guide > a { display: inline-flex; align-items: center; gap: 5px; color: #ffd0a8; font-size: 12px; font-weight: 700; text-decoration: none; }
+.setup-guide > p { margin: 12px 0 0; color: #d7c0b0; font-size: 11px; line-height: 1.45; }
+.guide-close { position: absolute; top: 10px; right: 10px; display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 50%; color: #e8d1c1; background: transparent; cursor: pointer; }
+.guide-close:hover { background: rgba(255,255,255,.1); }
+
+.wall-footer-actions { display: flex; align-items: center; gap: 9px; pointer-events: auto; }
+.wall-undo { height: 39px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid rgba(255,235,215,.28); border-radius: 999px; color: #f5dfce; background: rgba(23,17,16,.65); font-size: 10px; font-weight: 700; letter-spacing: .08em; cursor: pointer; }
+.wall-undo:hover { background: rgba(165,84,57,.42); }
+.track-source-link { flex: 0 0 26px; width: 26px; height: 30px; display: grid; place-items: center; color: #f1c4a4; border-radius: 6px; }
+.track-source-link:hover { background: rgba(255,255,255,.1); }
+
+.panel-spotify-logo { display: block; width: 80px; height: 22px; margin-bottom: 8px; }
+.wall-tools { display: flex; gap: 6px; margin: -2px 0 12px; }
+.wall-tools button { flex: 1; min-width: 0; min-height: 35px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border: 1px solid rgba(255,232,209,.25); border-radius: 8px; color: #f2dbc9; background: rgba(255,255,255,.04); font-size: 11px; cursor: pointer; }
+.wall-tools button:hover:not(:disabled) { border-color: #e7ae8b; background: rgba(217,145,101,.15); }
+.wall-tools button:disabled { opacity: .4; cursor: default; }
+.selected-wall-spot { min-height: 43px; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 11px; padding: 8px 10px; border: 1px solid rgba(255,232,209,.16); border-radius: 8px; color: #f1d9c8; background: rgba(255,255,255,.035); font-size: 11px; line-height: 1.35; }
+.selected-wall-spot span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.selected-wall-spot strong { color: #ffd0a8; }
+.selected-wall-spot button { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; border: 0; color: #ffc3a8; background: transparent; font-size: 11px; cursor: pointer; }
+.selected-wall-spot button:hover { text-decoration: underline; }
+.search-loading { min-height: 120px; display: flex; align-items: center; justify-content: center; gap: 10px; color: #f1d9c8; font-size: 12px; text-align: center; }
+.search-spinner { width: 16px; height: 16px; flex: 0 0 auto; border: 2px solid #7c5949; border-top-color: #ffd0a8; border-radius: 50%; animation: spin .8s linear infinite; }
+.search-count { margin: 0 0 9px; color: #d8b69e; font-size: 11px; font-variant-numeric: tabular-nums; }
+.album-result { min-width: 0; }
+.album-result button { width: 100%; }
+.album-result button:disabled { opacity: .57; cursor: default; }
+.album-result strong { display: block; margin-top: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 650; }
+.album-result small { display: block; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ddc2ae; font-size: 11px; }
+.album-result a, .album-source-link { display: inline-flex; align-items: center; gap: 5px; color: #f7c49f; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-decoration: none; }
+.album-result a { margin-top: 5px; }
+.album-result a:hover, .album-source-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.album-source-link { margin-top: 10px; font-size: 11px; }
+.panel-retry { min-height: 34px; padding: 0 14px; border: 1px solid #d9a17e; border-radius: 7px; color: #ffe4cf; background: transparent; cursor: pointer; }
+
+/* Keep labels comfortable to read while the room itself remains a single viewport. */
+.room-header-center, .room-hint, .connect-link, .spotify-status, .arrange-button { font-size: 10px; }
+.record-copy small, .panel-heading small, .album-meta small { font-size: 10px; }
+.record-copy > span, .panel-description, .album-player-status, .album-track-title small, .album-track-duration, .panel-pagination { font-size: 11px; }
+.panel-search input, .album-track-title strong, .album-meta span { font-size: 12px; }
+.panel-description { color: #dfc9b9; }
+.album-track-title small { color: #d5b9a4; }
+.album-track-duration, .player-time { color: #d6bcaa; }
+.panel-heading button { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 6px; }
+.panel-heading button:hover { background: rgba(255,255,255,.09); }
+.panel-pagination button { width: 32px; height: 32px; }
+
+@media (max-width: 1050px) {
+  .room-header { grid-template-columns: 1fr auto; padding-inline: 22px; }
+  .room-header-center { display: none; }
+  .room-footer { left: 22px; right: 22px; }
+  .library-panel { right: 22px; }
+}
+@media (max-width: 700px) {
+  .room-attribution { bottom: 78px; font-size: 9px; }
+  .room-header { padding-inline: 14px; }
+  .room-brand { font-size: 12px; }
+  .spotify-status { max-width: 45vw; padding: 7px 8px; }
+  .spotify-status > span:last-child { display: none; }
+  .spotify-disconnect { font-size: 10px; }
+  .setup-guide { right: 12px; bottom: 79px; padding: 14px 16px; }
+  .room-footer { left: 12px; right: 12px; bottom: 12px; gap: 8px; }
+  .current-record { width: min(365px, calc(100vw - 124px)); padding: 8px; }
+  .record-copy strong { font-size: 13px; }
+  .record-copy small, .record-copy > span { font-size: 10px; }
+  .wall-undo { width: 37px; height: 37px; justify-content: center; padding: 0; }
+  .wall-undo span { display: none; }
+  .wall-footer-actions { gap: 5px; }
+  .library-panel { top: 73px; right: 10px; bottom: 67px; width: min(390px, calc(100vw - 20px)); padding: 14px; }
+  .wall-keyboard.fallback { inset: 20% 6% auto; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-height: 650px) {
+  .room-header { height: 61px; }
+  .library-panel { top: 70px; bottom: 70px; padding: 15px; }
+  .room-footer { bottom: 12px; }
+  .setup-guide { bottom: 73px; }
+  .setup-guide ol { line-height: 1.35; }
+}
