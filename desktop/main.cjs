@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, Menu, shell, utilityProcess } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, Menu, session, shell, utilityProcess } = require("electron");
 const fs = require("node:fs");
 const net = require("node:net");
 const path = require("node:path");
@@ -30,9 +30,9 @@ function openSetup() {
   }
   setupWindow = new BrowserWindow({
     width: 560,
-    height: 590,
+    height: 660,
     minWidth: 480,
-    minHeight: 520,
+    minHeight: 590,
     resizable: true,
     title: "Set up Vinyl Room",
     backgroundColor: "#261b1b",
@@ -44,6 +44,8 @@ function openSetup() {
     },
   });
   setupWindow.loadFile(path.join(__dirname, "setup.html"));
+  setupWindow.webContents.on("will-navigate", (event) => event.preventDefault());
+  setupWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   setupWindow.on("closed", () => { setupWindow = null; });
 }
 
@@ -70,21 +72,37 @@ async function waitForServer(origin) {
 }
 
 function handleNavigation(event, target) {
-  if (roomOrigin && target.startsWith(`${roomOrigin}/api/spotify/login`) && !/^[a-zA-Z0-9]{32}$/.test(readClientId())) {
+  let url;
+  try { url = new URL(target); } catch { event.preventDefault(); return; }
+  if (roomOrigin && url.origin === roomOrigin && url.pathname === "/api/spotify/login" && !/^[a-zA-Z0-9]{32}$/.test(readClientId())) {
     event.preventDefault();
     openSetup();
     return;
   }
-  if (roomOrigin && target.startsWith(`${roomOrigin}/`)) return;
+  if (roomOrigin && url.origin === roomOrigin) return;
   event.preventDefault();
-  try {
-    const url = new URL(target);
-    if (url.protocol === "https:" && url.hostname === "accounts.spotify.com") {
-      void shell.openExternal(url.toString());
-    }
-  } catch {
-    // Never open arbitrary external protocols from the room.
+  if (url.protocol === "https:" && (url.hostname === "accounts.spotify.com" || url.hostname === "open.spotify.com")) {
+    void shell.openExternal(url.toString());
   }
+}
+
+function hardenSession() {
+  session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
+  session.defaultSession.setPermissionCheckHandler(() => false);
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    if (!roomOrigin || !details.url.startsWith(`${roomOrigin}/`)) {
+      callback({ responseHeaders: details.responseHeaders });
+      return;
+    }
+    callback({ responseHeaders: {
+      ...details.responseHeaders,
+      "Content-Security-Policy": [
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://i.scdn.co https://*.scdn.co https://*.spotifycdn.com; connect-src 'self'; font-src 'self' data:; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'self'",
+      ],
+      "X-Content-Type-Options": ["nosniff"],
+      "Referrer-Policy": ["no-referrer"],
+    } });
+  });
 }
 
 async function startRoom() {
@@ -124,8 +142,8 @@ async function startRoom() {
   roomWindow = new BrowserWindow({
     width: 1440,
     height: 900,
-    minWidth: 960,
-    minHeight: 620,
+    minWidth: 820,
+    minHeight: 560,
     title: "Vinyl Room",
     backgroundColor: "#261b1b",
     webPreferences: {
@@ -168,6 +186,7 @@ function installMenu() {
 }
 
 app.whenReady().then(async () => {
+  hardenSession();
   installMenu();
   ipcMain.handle("vinyl:initial-client-id", (event) =>
     event.sender === setupWindow?.webContents ? readClientId() : "");
