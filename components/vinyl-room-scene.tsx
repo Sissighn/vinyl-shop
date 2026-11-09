@@ -21,8 +21,14 @@ type Props = {
   onBackgroundClick: () => void;
 };
 
-type SceneControls = { setPlaying: (value: boolean) => void; animateRecord: (index: number) => void };
+type SceneControls = {
+  setPlaying: (value: boolean) => void;
+  animateRecord: (index: number) => void;
+  updateSlots: (albums: (RoomAlbum | null)[]) => void;
+  highlightSlot: (index: number | null) => void;
+};
 type DragPreview = { x: number; y: number; album: RoomAlbum; target: number | null };
+type SlotRect = { left: number; top: number; width: number; height: number };
 
 const SLOT_POSITIONS = [
   [-4.75, 2.55], [-1.58, 2.55], [1.58, 2.55], [4.75, 2.55],
@@ -137,14 +143,22 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
   const onTonearmClickRef = useRef(onTonearmClick);
   const onBackgroundClickRef = useRef(onBackgroundClick);
   const playingRef = useRef(playing);
+  const slotsRef = useRef(slots);
   const activeAlbumUriRef = useRef(activeAlbumUri);
   const [available, setAvailable] = useState(true);
   const [dragPreview, setDragPreview] = useState<DragPreview | null>(null);
+  const [slotRects, setSlotRects] = useState<SlotRect[]>([]);
+  const [keyboardMoveFrom, setKeyboardMoveFrom] = useState<number | null>(null);
+  const [announcement, setAnnouncement] = useState("");
 
   useEffect(() => { onSlotClickRef.current = onSlotClick; }, [onSlotClick]);
   useEffect(() => { onSlotDropRef.current = onSlotDrop; }, [onSlotDrop]);
   useEffect(() => { onTonearmClickRef.current = onTonearmClick; }, [onTonearmClick]);
   useEffect(() => { onBackgroundClickRef.current = onBackgroundClick; }, [onBackgroundClick]);
+  useEffect(() => {
+    slotsRef.current = slots;
+    controlsRef.current?.updateSlots(slots);
+  }, [slots]);
   useEffect(() => {
     playingRef.current = playing;
     controlsRef.current?.setPlaying(playing);
@@ -163,19 +177,19 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
 
     let renderer: THREE.WebGLRenderer;
     try {
-      renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+      renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "default" });
     } catch {
       const timer = window.setTimeout(() => setAvailable(false), 0);
       return () => window.clearTimeout(timer);
     }
 
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.8));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.08;
     renderer.shadowMap.enabled = false;
     renderer.domElement.className = "room-canvas";
-    renderer.domElement.setAttribute("aria-label", "Interaktiver 3D Vinyl Room");
+    renderer.domElement.setAttribute("aria-hidden", "true");
     mount.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
@@ -188,10 +202,10 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
     const wall = new THREE.MeshStandardMaterial({ color: 0x987c74, roughness: 1 });
     const wallAccent = new THREE.MeshStandardMaterial({ color: 0x694a4b, roughness: 1 });
     const woodTexture = createWoodTexture();
-    const wood = new THREE.MeshStandardMaterial({ color: 0xffffff, map: woodTexture, roughness: 0.76 });
+    const wood = new THREE.MeshStandardMaterial({ color: 0xe4c3a4, map: woodTexture, roughness: 0.69, metalness: 0.025, bumpMap: woodTexture, bumpScale: 0.018 });
     const woodDark = new THREE.MeshStandardMaterial({ color: 0x3b241c, roughness: 0.85 });
     const black = new THREE.MeshStandardMaterial({ color: 0x161615, roughness: 0.38, metalness: 0.18 });
-    const vinyl = new THREE.MeshStandardMaterial({ color: 0x0b0b0d, roughness: 0.26, metalness: 0.24 });
+    const vinyl = new THREE.MeshStandardMaterial({ color: 0x0b0b0d, roughness: 0.24, metalness: 0.3 });
     const silver = new THREE.MeshStandardMaterial({ color: 0xb6ada0, roughness: 0.28, metalness: 0.8 });
     const cream = new THREE.MeshStandardMaterial({ color: 0xf2eee6, roughness: 0.97 });
     const warmLight = new THREE.MeshBasicMaterial({ color: 0xffbb76 });
@@ -220,42 +234,34 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
       box(scene, 13.0, 0.16, 0.72, woodDark, [0, shelfY, -2.88]);
       box(scene, 13.0, 0.035, 0.74, wood, [0, shelfY + 0.1, -2.88]);
       box(scene, 13.0, 0.045, 0.12, warmLight, [0, shelfY - 0.1, -2.49]);
-      for (const x of [-4.7, -1.55, 1.55, 4.7]) {
-        const light = new THREE.PointLight(0xffad67, 5.5, 3.9, 1.3);
+      for (const x of [-3.25, 3.25]) {
+        const light = new THREE.PointLight(0xffad67, 8, 5.8, 1.5);
         light.position.set(x, shelfY - 0.17, -2.35);
         scene.add(light);
       }
     }
 
     const textureLoader = new THREE.TextureLoader();
-    const loadedTextures: THREE.Texture[] = [];
+    const coverFaces: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshStandardMaterial>[] = [];
+    const coverTextures: (THREE.Texture | null)[] = Array.from({ length: SLOT_POSITIONS.length }, () => null);
+    const coverSources: string[] = Array.from({ length: SLOT_POSITIONS.length }, () => "");
+    const coverRequests: number[] = Array.from({ length: SLOT_POSITIONS.length }, () => 0);
     let disposed = false;
     textureLoader.setCrossOrigin("anonymous");
-    slots.forEach((album, index) => {
-      const [x, y] = SLOT_POSITIONS[index];
+    SLOT_POSITIONS.forEach(([x, y], index) => {
       const sleeve = box(scene, 1.57, 1.57, 0.065, cream.clone(), [x, y, -2.62]);
       sleeve.userData.slotIndex = index;
       hitTargets.push(sleeve);
       sleeveMeshes.push(sleeve);
       box(scene, 1.62, 0.042, 0.2, woodDark, [x, y - 0.81, -2.52]);
-      if (album?.image) {
-        textureLoader.load(
-          album.image,
-          (texture) => {
-            if (disposed) { texture.dispose(); return; }
-            loadedTextures.push(texture);
-            texture.colorSpace = THREE.SRGBColorSpace;
-            texture.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), 8);
-            const coverMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, map: texture, roughness: 0.72 });
-            const coverFace = new THREE.Mesh(new THREE.PlaneGeometry(1.55, 1.55), coverMaterial);
-            coverFace.position.z = 0.034;
-            sleeve.add(coverFace);
-            sleeve.userData.coverMaterial = coverMaterial;
-          },
-          undefined,
-          () => { /* Keep the white sleeve if Spotify artwork cannot load. */ },
-        );
-      }
+      const coverFace = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.55, 1.55),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.72 }),
+      );
+      coverFace.position.z = 0.034;
+      coverFace.visible = false;
+      sleeve.add(coverFace);
+      coverFaces.push(coverFace);
     });
 
     // The cabinet is deliberately almost as wide as the fixed camera frame.
@@ -267,6 +273,9 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
     box(scene, 0.09, 1.67, 0.08, woodDark, [0, -2.31, 1.94]);
     for (const x of [-4.65, -1.5, 1.5, 4.65]) {
       box(scene, 0.75, 0.035, 0.035, silver, [x, -2.25, 1.97]);
+    }
+    for (const x of [-6.35, -4.7, -3.05, -1.65, 0, 1.65, 3.05, 4.7, 6.35]) {
+      box(scene, 0.012, 1.7, 0.012, woodDark, [x, -2.31, 1.948]);
     }
 
     makeSpeaker(scene, -4.65, woodDark);
@@ -350,6 +359,10 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
     let frame = 0;
     let lastFrameTime = 0;
     let isPlaying = playingRef.current;
+    const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let reduceMotion = motionPreference.matches;
+    let tonearmTarget = isPlaying ? -0.68 : 0.2;
+    let tonearmHeightTarget = isPlaying ? 0.24 : 0.34;
     let pointerDown: { index: number | null; x: number; y: number; dragging: boolean } | null = null;
     let highlightedSlot: number | null = null;
     let animation: {
@@ -358,27 +371,63 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
       start: number;
     } | null = null;
 
+    function requestRender() {
+      if (!disposed && !frame && !document.hidden) frame = requestAnimationFrame(animate);
+    }
     function setPlaying(value: boolean) {
       isPlaying = value;
-      tonearm.rotation.y = value ? -0.68 : 0.2;
-      tonearm.position.y = value ? 0.24 : 0.34;
+      tonearmTarget = value ? -0.68 : 0.2;
+      tonearmHeightTarget = value ? 0.24 : 0.34;
+      if (reduceMotion) {
+        tonearm.rotation.y = tonearmTarget;
+        tonearm.position.y = tonearmHeightTarget;
+      }
       indicator.visible = value;
+      requestRender();
     }
-    controlsRef.current = { setPlaying, animateRecord };
-    setPlaying(playingRef.current);
-
+    function updateSlots(albums: (RoomAlbum | null)[]) {
+      albums.forEach((album, index) => {
+        const source = album?.image ?? "";
+        if (coverSources[index] === source) return;
+        coverSources[index] = source;
+        const requestId = ++coverRequests[index];
+        coverTextures[index]?.dispose();
+        coverTextures[index] = null;
+        const face = coverFaces[index];
+        face.material.map = null;
+        face.material.needsUpdate = true;
+        face.visible = false;
+        if (!source) { requestRender(); return; }
+        let pendingTexture: THREE.Texture | null = null;
+        pendingTexture = textureLoader.load(source, (texture) => {
+          if (disposed || coverRequests[index] !== requestId) { texture.dispose(); return; }
+          texture.colorSpace = THREE.SRGBColorSpace;
+          texture.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), 4);
+          coverTextures[index] = texture;
+          face.material.map = texture;
+          face.material.needsUpdate = true;
+          face.visible = true;
+          requestRender();
+        }, undefined, () => {
+          pendingTexture?.dispose();
+          requestRender();
+        });
+        requestRender();
+      });
+    }
     function animateRecord(index: number) {
       const source = sleeveMeshes[index];
-      const material = (source.userData.coverMaterial as THREE.Material | undefined) ?? source.material;
       if (animation) {
         scene.remove(animation.mesh);
         animation.mesh.geometry.dispose();
       }
-      const moving = new THREE.Mesh(new THREE.BoxGeometry(1.57, 1.57, 0.065), material);
+      const moving = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.025, 64), vinyl);
       moving.castShadow = true;
       moving.position.copy(source.position);
+      moving.rotation.x = Math.PI / 2;
       scene.add(moving);
       animation = { mesh: moving, from: source.position.clone(), start: performance.now() };
+      requestRender();
     }
 
     function getHit(event: PointerEvent): { kind: "slot"; index: number } | { kind: "tonearm" } | null {
@@ -404,15 +453,16 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
       if (highlightedSlot !== null) (sleeveMeshes[highlightedSlot].material as THREE.MeshStandardMaterial).emissive.setHex(0x000000);
       highlightedSlot = index;
       if (index !== null) (sleeveMeshes[index].material as THREE.MeshStandardMaterial).emissive.setHex(0x684027);
+      requestRender();
     }
     function handlePointerMove(event: PointerEvent) {
       const hit = getHit(event);
-      if (pointerDown?.index !== null && pointerDown?.index !== undefined && slots[pointerDown.index]) {
+      if (pointerDown?.index !== null && pointerDown?.index !== undefined && slotsRef.current[pointerDown.index]) {
         if (pointerDown.dragging || Math.hypot(event.clientX - pointerDown.x, event.clientY - pointerDown.y) > 8) {
           pointerDown.dragging = true;
           const target = hit?.kind === "slot" && hit.index !== pointerDown.index ? hit.index : null;
           highlightSlot(target);
-          setDragPreview({ x: event.clientX, y: event.clientY, album: slots[pointerDown.index]!, target });
+          setDragPreview({ x: event.clientX, y: event.clientY, album: slotsRef.current[pointerDown.index]!, target });
           renderer.domElement.style.cursor = "grabbing";
           return;
         }
@@ -462,16 +512,34 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
       camera.updateProjectionMatrix();
       camera.lookAt(cameraTarget);
       renderer.setSize(width, height, false);
+      setSlotRects(SLOT_POSITIONS.map(([x, y]) => {
+        const leftTop = new THREE.Vector3(x - 0.81, y + 0.81, -2.58).project(camera);
+        const rightBottom = new THREE.Vector3(x + 0.81, y - 0.81, -2.58).project(camera);
+        return {
+          left: (leftTop.x + 1) * width / 2,
+          top: (1 - leftTop.y) * height / 2,
+          width: (rightBottom.x - leftTop.x) * width / 2,
+          height: (leftTop.y - rightBottom.y) * height / 2,
+        };
+      }));
+      requestRender();
     };
     const resizeObserver = new ResizeObserver(resize);
     resizeObserver.observe(mount);
     resize();
 
-    const animate = (time: number) => {
-      frame = requestAnimationFrame(animate);
+    function animate(time: number) {
+      frame = 0;
+      if (document.hidden) { lastFrameTime = 0; return; }
       const elapsedSeconds = lastFrameTime ? Math.min((time - lastFrameTime) / 1000, 0.05) : 0;
       lastFrameTime = time;
-      if (isPlaying) record.rotation.y += RECORD_RADIANS_PER_SECOND * elapsedSeconds;
+      if (isPlaying && !reduceMotion) record.rotation.y += RECORD_RADIANS_PER_SECOND * elapsedSeconds;
+      const armMoving = !reduceMotion && (Math.abs(tonearm.rotation.y - tonearmTarget) > 0.002 || Math.abs(tonearm.position.y - tonearmHeightTarget) > 0.002);
+      if (armMoving) {
+        const fraction = Math.min(1, elapsedSeconds * 12);
+        tonearm.rotation.y += (tonearmTarget - tonearm.rotation.y) * fraction;
+        tonearm.position.y += (tonearmHeightTarget - tonearm.position.y) * fraction;
+      }
       if (animation) {
         const elapsed = Math.min(1, (time - animation.start) / 850);
         const eased = 1 - Math.pow(1 - elapsed, 3);
@@ -481,9 +549,9 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
           eased,
         );
         animation.mesh.position.y += Math.sin(elapsed * Math.PI) * 0.8;
-        animation.mesh.rotation.x = -Math.PI / 2 * eased;
+        animation.mesh.rotation.x = Math.PI / 2 * (1 - eased);
         animation.mesh.rotation.y = elapsed * 0.35;
-        animation.mesh.scale.setScalar(1 - 0.68 * eased);
+        animation.mesh.scale.setScalar(1 - 0.08 * eased);
         if (elapsed >= 1) {
           scene.remove(animation.mesh);
           animation.mesh.geometry.dispose();
@@ -491,13 +559,23 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
         }
       }
       renderer.render(scene, camera);
-    };
-    frame = requestAnimationFrame(animate);
+      if ((isPlaying && !reduceMotion) || animation || armMoving) requestRender();
+    }
+    const visibilityChanged = () => { lastFrameTime = 0; requestRender(); };
+    const motionChanged = () => { reduceMotion = motionPreference.matches; setPlaying(isPlaying); };
+    document.addEventListener("visibilitychange", visibilityChanged);
+    motionPreference.addEventListener("change", motionChanged);
+    controlsRef.current = { setPlaying, animateRecord, updateSlots, highlightSlot };
+    setPlaying(playingRef.current);
+    updateSlots(slotsRef.current);
+    requestRender();
 
     return () => {
       disposed = true;
       controlsRef.current = null;
       cancelAnimationFrame(frame);
+      document.removeEventListener("visibilitychange", visibilityChanged);
+      motionPreference.removeEventListener("change", motionChanged);
       resizeObserver.disconnect();
       renderer.domElement.removeEventListener("pointermove", handlePointerMove);
       renderer.domElement.removeEventListener("pointerdown", handlePointerDown);
@@ -511,16 +589,73 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
         meshMaterials.forEach((material) => materials.add(material));
       });
       materials.forEach((material) => material.dispose());
-      loadedTextures.forEach((texture) => texture.dispose());
+      coverTextures.forEach((texture) => texture?.dispose());
       woodTexture?.dispose();
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, [slots]);
+  }, []);
+
+  function focusSlot(index: number) {
+    mountRef.current?.querySelector<HTMLButtonElement>(`[data-wall-slot="${index}"]`)?.focus();
+  }
+
+  function activateSlot(index: number) {
+    if (keyboardMoveFrom !== null) {
+      if (keyboardMoveFrom !== index) {
+        onSlotDrop(keyboardMoveFrom, index);
+        setAnnouncement(`Record moved to wall spot ${index + 1}.`);
+      }
+      setKeyboardMoveFrom(null);
+      return;
+    }
+    onSlotClick(index);
+  }
+
+  function handleSlotKey(event: React.KeyboardEvent<HTMLButtonElement>, index: number) {
+    const next = event.key === "ArrowRight" ? Math.min(7, index + 1)
+      : event.key === "ArrowLeft" ? Math.max(0, index - 1)
+        : event.key === "ArrowDown" ? Math.min(7, index + 4)
+          : event.key === "ArrowUp" ? Math.max(0, index - 4) : null;
+    if (next !== null) { event.preventDefault(); focusSlot(next); return; }
+    if (event.key === "Escape" && keyboardMoveFrom !== null) {
+      event.preventDefault();
+      event.stopPropagation();
+      setKeyboardMoveFrom(null);
+      setAnnouncement("Move cancelled.");
+      return;
+    }
+    if (event.key !== " ") return;
+    event.preventDefault();
+    if (keyboardMoveFrom !== null) { activateSlot(index); return; }
+    if (!slots[index]) { onSlotClick(index); return; }
+    setKeyboardMoveFrom(index);
+    setAnnouncement(`Picked up ${slots[index]?.title}. Choose another spot and press Enter or Space.`);
+  }
 
   return (
     <div className="scene-mount" ref={mountRef}>
       {!available && <div className="webgl-fallback">Your browser needs WebGL to display the 3D room.</div>}
+      <p id="wall-keyboard-help" className="sr-only">Use arrow keys to move between wall spots. Press Enter to open a record. Press Space to pick up a record, then Enter or Space on another spot to move or swap it. Escape cancels.</p>
+      <span className="sr-only" role="status" aria-live="polite">{announcement}</span>
+      <div className={`wall-keyboard ${available ? "" : "fallback"}`} aria-label="Album wall">
+        {SLOT_POSITIONS.map((_, index) => (
+          <button
+            key={index}
+            type="button"
+            data-wall-slot={index}
+            className="wall-keyboard-slot"
+            style={slotRects[index]}
+            aria-label={`Wall spot ${index + 1}: ${slots[index] ? `${slots[index].title} by ${slots[index].artist}` : "empty"}`}
+            aria-describedby="wall-keyboard-help"
+            aria-pressed={keyboardMoveFrom === index}
+            onClick={() => activateSlot(index)}
+            onKeyDown={(event) => handleSlotKey(event, index)}
+            onFocus={() => controlsRef.current?.highlightSlot(index)}
+            onBlur={() => controlsRef.current?.highlightSlot(null)}
+          >{!available ? `Spot ${index + 1}: ${slots[index]?.title ?? "empty"}` : null}</button>
+        ))}
+      </div>
       {dragPreview && (
         <div className="wall-drag-preview" style={{ left: dragPreview.x, top: dragPreview.y }} aria-hidden="true">
           {dragPreview.album.image ? (
