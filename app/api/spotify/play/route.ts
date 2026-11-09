@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { spotifyFetch } from "@/lib/spotify";
+import { readSmallJson, spotifyError, trustedMutation } from "@/lib/spotify-http";
 
 const playbackRequest = z.object({
   contextUri: z.string().regex(/^spotify:album:[a-zA-Z0-9]{22}$/).optional(),
@@ -10,7 +11,9 @@ const playbackRequest = z.object({
 }).refine(({ trackUri, contextUri }) => !trackUri || Boolean(contextUri));
 
 export async function PUT(request: Request) {
-  const parsed = playbackRequest.safeParse(await request.json());
+  const denied = trustedMutation(request);
+  if (denied) return denied;
+  const parsed = playbackRequest.safeParse(await readSmallJson(request));
   if (!parsed.success) return NextResponse.json({ error: "Invalid playback request" }, { status: 400 });
   const { contextUri, trackUri, deviceId, positionMs } = parsed.data;
   const path = `/me/player/play${deviceId ? `?device_id=${encodeURIComponent(deviceId)}` : ""}`;
@@ -21,9 +24,6 @@ export async function PUT(request: Request) {
       body: JSON.stringify({ context_uri: contextUri, ...(trackUri ? { offset: { uri: trackUri } } : {}), ...(positionMs !== undefined ? { position_ms: positionMs } : {}) }),
     } : {}),
   });
-  if (!response) return NextResponse.json({ error: "Not connected" }, { status: 401 });
-  if (!response.ok) {
-    return NextResponse.json({ error: "No active Spotify device" }, { status: response.status });
-  }
+  if (!response?.ok) return spotifyError(response, "Could not start Spotify playback. Open Spotify on your Mac and try again.");
   return new NextResponse(null, { status: 204 });
 }
