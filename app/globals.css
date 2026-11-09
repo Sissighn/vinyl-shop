@@ -1,11 +1,10 @@
-@import "tailwindcss";
-
 :root { color-scheme: dark; }
 * { box-sizing: border-box; }
 html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 body { background: #261d1b; color: #f7eee6; font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif; }
 button, a { -webkit-tap-highlight-color: transparent; }
 button { font: inherit; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
 .vinyl-room { position: relative; width: 100vw; height: 100dvh; overflow: hidden; background: #261d1b; }
 .scene-mount, .room-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
