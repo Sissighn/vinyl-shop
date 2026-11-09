@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const standalone = path.join(root, ".next", "standalone");
+const standalone = path.join(root, ".next-desktop", "standalone");
 const output = path.join(root, ".desktop", "standalone");
 
 await new Promise((resolve, reject) => {
@@ -21,5 +21,5 @@ await rm(output, { recursive: true, force: true });
 await mkdir(output, { recursive: true });
 await cp(standalone, output, { recursive: true });
 await cp(path.join(root, "public"), path.join(output, "public"), { recursive: true });
-await cp(path.join(root, ".next", "static"), path.join(output, ".next", "static"), { recursive: true });
+await cp(path.join(root, ".next-desktop", "static"), path.join(output, ".next-desktop", "static"), { recursive: true });
 console.log(`Desktop web bundle ready: ${output}`);
