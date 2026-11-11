@@ -15,6 +15,7 @@ await writeFile(path.join(appDir, "package.json"), JSON.stringify({
   name: packageInfo.name,
   version: packageInfo.version,
   description: packageInfo.description,
+  author: packageInfo.author,
   main: "main.cjs",
   private: true,
 }, null, 2));
