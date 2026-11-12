@@ -1,82 +1,68 @@
 # Vinyl Room
 
-![Vinyl Room with empty album shelves](docs/vinyl-room-empty.png)
+![Empty Vinyl Room with two shelves, speakers and a turntable](docs/vinyl-room-empty.png)
 
-A personal, interactive 3D room for your records. A fixed camera frames a wall with eight album spots, a wide wooden console, two speakers, and a turntable. The room fills the browser window without page scrolling.
+Vinyl Room is a personal, interactive 3D listening room. Eight album spots sit above a wooden console and turntable in a fixed, single-screen view. Search Spotify's catalog to arrange your wall without saving albums to your Spotify library. Opening an album shows its tracks; music changes only when you select a track.
 
-The album spots start empty. Search Spotify's catalog to put any album on your wall—no need to save it to your Spotify library. Drag a cover onto another wall spot to move or swap albums, or use the keyboard controls. Remove or replace an album, undo the last wall change, and export or import your arrangement as JSON. Click a wall album to browse its track list without interrupting the current song; playback changes only when you choose a new track. Click outside the track list to close it.
-
-![Vinyl Room with albums arranged on the wall](docs/vinyl-room-collection.png)
+![Vinyl Room with Spotify albums arranged on the wall](docs/vinyl-room-collection.png)
 
 ## Download for macOS
 
-[Open the locally built Apple Silicon DMG](release/Vinyl-Room-0.4.1-arm64.dmg)
+**Apple Silicon (M-series):** [Vinyl Room v0.5.0 DMG](https://github.com/Sissighn/vinyl-shop/releases/download/v0.5.0/Vinyl-Room-0.5.0-arm64.dmg). The download becomes available when the `v0.5.0` GitHub release is published. [View all releases](https://github.com/Sissighn/vinyl-shop/releases).
 
-The DMG is generated in the ignored `release/` folder. For a working download on GitHub, upload that file to a GitHub Release and replace this local link with the release asset URL. The app is not Apple-notarized, so macOS may ask you to confirm opening it in **System Settings → Privacy & Security**.
+Open the DMG and drag **Vinyl Room** to Applications. The current release process produces an unsigned DMG until Apple signing credentials are configured. macOS may require you to approve an unsigned app in **System Settings → Privacy & Security**. The app itself works without Spotify for viewing and rearranging an existing wall; catalog search and playback require a Spotify connection.
 
-Open Spotify on your Mac before choosing a song in Vinyl Room. Vinyl Room controls that Spotify app and reads its playback status; it does not stream protected audio inside Electron. If your Mac does not appear as a device, play any song briefly in Spotify, then use **Refresh devices** in the album panel. The room and your saved wall remain usable without a connection; catalog search and playback require Spotify. Quit another running Vinyl Room instance first, since both use the same local port.
+### Spotify setup
 
-The tonearm acts as a play/pause switch: on the record while playing, parked beside it while paused. The compact player at bottom left expands when clicked, offering song scrubbing, previous/next, shuffle, and repeat (off → song → album).
+1. Create your own app in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and choose **Web API**.
+2. Add `http://127.0.0.1:17873/api/spotify/callback` as a Redirect URI. Use `127.0.0.1`, with the port and path shown here; `localhost` is not accepted by Spotify.
+3. Paste the app's **Client ID** into Vinyl Room's first-launch setup. Do not enter a Client Secret. Sign-in opens in your default browser.
+4. For playback, open the **Spotify desktop app on the same Mac** and briefly play a song so it appears as a Spotify Connect device. If Vinyl Room cannot find it, use **Refresh devices** in an album's track panel.
 
-Use **Disconnect** in the top right to remove Vinyl Room's local Spotify session. Your wall layout remains on this Mac. Export your wall before clearing app data or moving to another Mac, then import its JSON file in **Arrange Wall**. You can reconnect at any time. Disconnecting does not revoke the authorization in your Spotify account settings.
+Vinyl Room controls the Spotify desktop app; protected audio is not streamed inside Electron. Playback requires Spotify Premium. Spotify development-mode apps require the app owner to have Premium and allow only accounts added to that app's user allowlist (up to five users for new apps). See [Spotify's development-mode rules](https://developer.spotify.com/documentation/web-api/concepts/quota-modes), [redirect URI rules](https://developer.spotify.com/documentation/web-api/concepts/redirect_uri), and [playback API](https://developer.spotify.com/documentation/web-api/reference/start-a-users-playback).
 
-Open the DMG and drag **Vinyl Room** to Applications. On first launch, the app asks for a Spotify Client ID. Create a Spotify app in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard), select **Web API** (not iOS), add `http://127.0.0.1:17873/api/spotify/callback` as its redirect URI, and paste its Client ID into Vinyl Room. Do not paste a Client Secret. Spotify sign-in opens in your default browser and returns you to the app.
+**Disconnect** removes Vinyl Room's local Spotify session, while your wall stays on this Mac. You can export the wall before clearing app data or moving to another Mac. Disconnecting Vinyl Room does not revoke access in your Spotify account settings.
 
-Spotify Premium is required for playback. Spotify development-mode apps also limit which accounts may use them.
+## Use the room
 
-To rebuild the local Apple Silicon DMG:
+- Click a wall album to browse its tracks. Click outside or press Escape to close the panel. Choosing another album does not interrupt the current song.
+- Open **Arrange Wall**, select one of the eight spots, then search and add or replace an album. Results show ten albums per page. Remove an album or undo your last wall change from the same panel.
+- Drag an album between spots to move or swap it. With a keyboard, focus a spot and press Space to pick it up, use the arrow keys to move, then press Enter or Space to drop. Escape cancels.
+- Use **Export** and **Import** in **Arrange Wall** to back up or restore your wall as JSON. Changes are also saved locally.
+- Click the tonearm or the compact player to pause or resume. Expand the player for seeking, previous/next, shuffle and repeat. The record's rotation follows Spotify playback state.
+
+Album artwork and metadata come from Spotify, with links to the original albums and tracks. No covers are generated.
+
+## Develop locally
+
+Requires Node.js 22.13 or newer. The browser app and Mac app share the same React UI and Spotify routes; the desktop build bundles a local Next.js server inside Electron.
 
 ```bash
-npm install
-npm run desktop:package
-```
-
-## Run the website locally
-
-Requires Node.js 22.13 or newer.
-
-```bash
-npm install
+npm ci
 cp .env.example .env.local
 npm run dev
 ```
 
-Then open `http://127.0.0.1:5173`.
+Open `http://127.0.0.1:5173`. For Spotify sign-in in the browser, add `http://127.0.0.1:5173/api/spotify/callback` to the same Spotify app, then fill in `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` in `.env.local`. The browser uses server-side HTTP-only cookies; the Mac app uses PKCE and needs only the Client ID.
 
-## Verify a change
+Build and verify:
 
 ```bash
 npm run lint
 npm run typecheck
 npm test
 npm run build
-npm run desktop:build:web
+npm run desktop:package
 ```
 
-The web and desktop builds use separate output folders (`dist/` and `.next-desktop/`). The tests cover Spotify request boundaries, token refresh, rate-limit handling, playback-state reconciliation, and wall file validation. No Spotify credentials are needed to run them.
+The local Apple Silicon DMG is written to `release/Vinyl-Room-0.5.0-arm64.dmg`. The `release/` directory is ignored by Git. The Electron window uses sandboxing, context isolation, restricted navigation, denied permissions and a content security policy.
 
-## Set up Spotify
+## Release process
 
-For the website, add `http://127.0.0.1:5173/api/spotify/callback` as another redirect URI in Spotify Developer Dashboard. Set `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` in `.env.local`. The web build uses server-side HTTP-only cookies. The desktop app uses PKCE and needs only the Client ID.
+`package.json` is the version source. A Git tag must match it exactly, for example `v0.5.0` for version `0.5.0`. Run `npm run release:check` before making a release. After **you** commit and push the versioned source, push its matching tag. The [macOS release workflow](.github/workflows/release-macos.yml) runs the checks, builds the Apple Silicon DMG, verifies it, creates a SHA-256 checksum and publishes both files to GitHub Releases. It rejects a mismatched tag or incomplete signing configuration.
 
-Vinyl Room requests Spotify's playback read/write scopes and the profile scope needed for catalog search. Access tokens stay in HTTP-only cookies and are not exposed through an app API. Playback requests require a same-origin browser request. The Electron window uses sandboxing, context isolation, a restricted navigation policy, denied permissions, and a content security policy. Spotify rate limits and temporary outages surface as recoverable errors; the playback display backs off and resynchronizes with Spotify.
+Without signing credentials, the workflow labels the release **unsigned and not notarized**. For a signed and notarized release, an Apple Developer Program account is required. Configure all six repository secrets: `MAC_CSC_LINK` (base64-encoded Developer ID Application `.p12`), `MAC_CSC_KEY_PASSWORD`, `APPLE_API_KEY` (base64-encoded App Store Connect `.p8`), `APPLE_API_KEY_ID`, `APPLE_API_ISSUER`, and `APPLE_TEAM_ID`. The separate [signed build configuration](desktop/electron-builder.signed.cjs) requires signing and notarization; it does not silently fall back to an unsigned build. See [electron-builder's notarization guide](https://www.electron.build/v26/docs/notarization/).
 
-## Interactions
+## Stack
 
-- Click an album on the wall to open its track list; click a song to play from that point in the album through Spotify on your Mac.
-- Open **Arrange Wall**, click a wall spot, search for an album, then click a result to add it. Nothing is saved to your Spotify library.
-- Search shows ten albums per page with loading, result count, pagination, and retry states. Each result and opened album links to its original Spotify page.
-- To move or swap albums with the keyboard, focus a wall spot, press Space to pick up its record, move with the arrow keys, then press Enter or Space to drop. Escape cancels. Enter opens an album; Escape closes its track list.
-- Select an occupied spot in **Arrange Wall** to remove or replace its album. **Undo** restores the last change. **Export** downloads a wall JSON file; **Import** restores one. The wall also saves locally after each change.
-- Use the playback button at the bottom left to pause or resume. The 3D record follows Spotify's reported playback state, including pauses made in Spotify.
-- The player, track list, search, wall tools, and links are keyboard accessible. Focus outlines and reduced-motion settings are supported.
-
-## Technology
-
-- React 19, TypeScript, and App Router on Vinext
-- Three.js for WebGL geometry, lighting, and animation
-- Server routes for Spotify OAuth, catalog search, and playback
-- Electron and a bundled Next.js server for the native macOS app
-- Spotify Connect and Web API for Mac playback control and status
-
-The 3D scene updates only changed album sleeves and stops rendering when idle or hidden. Its materials, lighting, vinyl grooves, and tonearm provide depth without animated album artwork. No album covers are generated: covers and album metadata come from Spotify, with links back to the original content and Spotify attribution.
+React 19, TypeScript, Three.js, Next.js/Vinext, Electron, and the Spotify Web API. The 3D room updates changed sleeves in place and stops rendering when idle or hidden. The browser build uses Cloudflare/Vinext tooling; the Mac build uses Next.js standalone output.
