@@ -45,6 +45,14 @@ npm run dev
 
 Open `http://127.0.0.1:5173`. For Spotify sign-in in the browser, add `http://127.0.0.1:5173/api/spotify/callback` to the same Spotify app, then fill in `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` in `.env.local`. The browser uses server-side HTTP-only cookies; the Mac app uses PKCE and needs only the Client ID.
 
+For the Mac app during development, quit any running Vinyl Room app and run:
+
+```bash
+npm run desktop:dev
+```
+
+This opens the Electron window with a local Next.js development server. UI changes appear after saving without rebuilding the DMG. The Spotify Client ID is read from the same local app settings as the packaged version. The installed Mac app does not update from source edits; build a new DMG for a distributable version.
+
 Build and verify:
 
 ```bash

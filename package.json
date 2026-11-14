@@ -16,7 +16,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "desktop:build:web": "node scripts/build-desktop-web.mjs",
-    "desktop:dev": "npm run desktop:build:web && electron desktop/main.cjs",
+    "desktop:dev": "VINYL_DESKTOP_DEV=1 electron desktop/main.cjs",
     "desktop:icon": "node scripts/build-desktop-icon.mjs",
     "desktop:package": "npm run desktop:build:web && npm run desktop:icon && node scripts/prepare-desktop-package.mjs && electron-builder --mac dmg --arm64",
     "desktop:package:release": "node scripts/package-release.mjs",
