@@ -198,7 +198,8 @@ function installMenu() {
 
 app.whenReady().then(async () => {
   if (desktopDev && process.platform === "darwin") {
-    app.dock.setIcon(path.join(__dirname, "assets", "icon.icns"));
+    const devIcon = path.join(__dirname, "..", ".desktop", "icon.iconset", "icon_512x512@2x.png");
+    if (fs.existsSync(devIcon)) app.dock.setIcon(devIcon);
   }
   hardenSession();
   installMenu();
