@@ -3,12 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
   <title>Set up Vinyl Room</title>
   <style>
     :root { color-scheme: dark; font-family: -apple-system, BlinkMacSystemFont, "Avenir Next", sans-serif; }
     * { box-sizing: border-box; }
     body { min-height: 100vh; margin: 0; background: radial-gradient(circle at 80% 10%, #65332c, transparent 42%), #261b1b; color: #f4e9df; }
-    main { max-width: 480px; margin: auto; padding: 50px 42px 38px; }
+    main { max-width: 480px; margin: auto; padding: 34px 42px 28px; }
     .mark { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 14px; background: #382523; box-shadow: 0 8px 26px #140c0b55; }
     .mark::before { content: ""; display: block; width: 31px; height: 31px; border-radius: 50%; background: radial-gradient(circle, #f4dfc8 0 2px, #c47250 3px 7px, #171414 8px 14px, #ba8c70 15px); }
     .eyebrow { margin-top: 34px; color: #d49d7c; font-size: 10px; font-weight: 700; letter-spacing: .22em; }
@@ -26,6 +27,9 @@
     .skip:hover { color: #fff0e1; }
     .link { padding: 0; background: none; color: #f0ad84; font: inherit; text-decoration: underline; text-underline-offset: 3px; }
     .error { min-height: 21px; color: #ffb9a7; font-size: 12px; }
+    .setup-note { margin-top: 20px; padding: 13px 15px; border: 1px solid #76574a; border-radius: 9px; background: #2d201e; }
+    .setup-note strong { display: block; color: #f0c4a5; font-size: 12px; margin-bottom: 5px; }
+    .setup-note p { margin: 0; }
   </style>
 </head>
 <body>
@@ -33,11 +37,11 @@
     <div class="mark" aria-hidden="true"></div>
     <div class="eyebrow">ONE-TIME SETUP</div>
     <h1>Welcome to Vinyl Room.</h1>
-    <p>Connect your own Spotify developer app to fill the wall with your favorite albums. No secret is stored inside Vinyl Room.</p>
+    <p>Connect your own Spotify developer app to search albums and control playback. Vinyl Room needs only its Client ID.</p>
     <ol>
-      <li><button type="button" class="link" id="dashboard">Create an app in Spotify Developer Dashboard</button>.</li>
-      <li>Add this Redirect URI: <code>http://127.0.0.1:17873/api/spotify/callback</code></li>
-      <li>Copy the app's Client ID below.</li>
+      <li><button type="button" class="link" id="dashboard">Create an app in Spotify Developer Dashboard</button> and select <strong>Web API</strong>.</li>
+      <li>Add this exact Redirect URI: <code>http://127.0.0.1:17873/api/spotify/callback</code></li>
+      <li>Paste the app's Client ID below. Do not paste a Client Secret.</li>
     </ol>
     <form id="setup-form">
       <label for="client-id">Spotify Client ID</label>
@@ -46,6 +50,7 @@
       <button class="skip" id="skip" type="button">Explore the room without Spotify</button>
       <p class="error" id="error" role="alert"></p>
     </form>
+    <div class="setup-note"><strong>To play music</strong><p>Spotify Premium and the Spotify app on this Mac are required. Open Spotify and play a song once so the Mac appears as a device. You can arrange the room without connecting, but search and playback need Spotify.</p></div>
   </main>
   <script>
     const input = document.getElementById("client-id");
