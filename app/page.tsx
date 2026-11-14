@@ -689,7 +689,7 @@ export default function Home() {
 
       <header className="room-header">
         <div className="room-brand"><Disc3 size={20} strokeWidth={1.3} /><span>VINYL <em>ROOM</em></span></div>
-        <div className="room-header-center">YOUR PERSONAL LISTENING ROOM</div>
+        <div className="room-header-center">YOUR PERSONAL VINYL ROOM</div>
         {connected && needsReconnect ? (
           <a className="connect-link" href="/api/spotify/login" onClick={() => setConnected(false)}>RECONNECT SPOTIFY</a>
         ) : connected ? (
