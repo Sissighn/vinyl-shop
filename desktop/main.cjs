@@ -3,6 +3,11 @@ const fs = require("node:fs");
 const net = require("node:net");
 const path = require("node:path");
 
+const desktopDev = !app.isPackaged && process.env.VINYL_DESKTOP_DEV === "1";
+if (desktopDev) {
+  app.setName("Vinyl Room Dev");
+  app.setPath("userData", path.join(app.getPath("appData"), "vinyl-room"));
+}
 let roomWindow;
 let setupWindow;
 let serverProcess;
@@ -97,7 +102,7 @@ function hardenSession() {
     callback({ responseHeaders: {
       ...details.responseHeaders,
       "Content-Security-Policy": [
-        "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://i.scdn.co https://*.scdn.co https://*.spotifycdn.com; connect-src 'self'; font-src 'self' data:; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'self'",
+        `default-src 'self'; script-src 'self' 'unsafe-inline'${desktopDev ? " 'unsafe-eval'" : ""}; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://i.scdn.co https://*.scdn.co https://*.spotifycdn.com; connect-src 'self'${desktopDev ? ` ws://127.0.0.1:${DESKTOP_PORT}` : ""}; font-src 'self' data:; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'self'`,
       ],
       "X-Content-Type-Options": ["nosniff"],
       "Referrer-Policy": ["no-referrer"],
@@ -113,17 +118,23 @@ async function startRoom() {
   const clientId = readClientId();
   await checkDesktopPort();
   roomOrigin = `http://127.0.0.1:${DESKTOP_PORT}`;
-  const webRoot = app.isPackaged
-    ? path.join(process.resourcesPath, "web")
-    : path.join(__dirname, "..", ".desktop", "standalone");
-  const serverEntry = path.join(webRoot, "server.js");
-  if (!fs.existsSync(serverEntry)) throw new Error("The desktop web bundle is missing. Run npm run desktop:build:web.");
+  const webRoot = desktopDev
+    ? path.join(__dirname, "..")
+    : app.isPackaged
+      ? path.join(process.resourcesPath, "web")
+      : path.join(__dirname, "..", ".desktop", "standalone");
+  const serverEntry = desktopDev
+    ? path.join(webRoot, "node_modules", "next", "dist", "bin", "next")
+    : path.join(webRoot, "server.js");
+  if (!fs.existsSync(serverEntry)) {
+    throw new Error(desktopDev ? "Dependencies are missing. Run npm ci." : "The desktop web bundle is missing. Run npm run desktop:build:web.");
+  }
 
-  serverProcess = utilityProcess.fork(serverEntry, [], {
+  serverProcess = utilityProcess.fork(serverEntry, desktopDev ? ["dev", "--hostname", "127.0.0.1", "--port", String(DESKTOP_PORT)] : [], {
     cwd: webRoot,
     env: {
       ...process.env,
-      NODE_ENV: "production",
+      NODE_ENV: desktopDev ? "development" : "production",
       VINYL_DESKTOP: "1",
       SPOTIFY_CLIENT_ID: clientId,
       SPOTIFY_REDIRECT_URI: `${roomOrigin}/api/spotify/callback`,
@@ -186,6 +197,9 @@ function installMenu() {
 }
 
 app.whenReady().then(async () => {
+  if (desktopDev && process.platform === "darwin") {
+    app.dock.setIcon(path.join(__dirname, "assets", "icon.icns"));
+  }
   hardenSession();
   installMenu();
   ipcMain.handle("vinyl:initial-client-id", (event) =>
