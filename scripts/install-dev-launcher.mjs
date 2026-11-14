@@ -1,73 +1,85 @@
-import { execFileSync } from "node:child_process";
-import { chmod, copyFile, mkdir, writeFile } from "node:fs/promises";
+import { execFileSync, spawnSync } from "node:child_process";
+import { access, copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 
-if (process.platform !== "darwin") {
-  throw new Error("The development launcher is only available on macOS.");
-}
+if (process.platform !== "darwin") throw new Error("The local Mac launcher requires macOS.");
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const appPath = path.join(os.homedir(), "Applications", "Vinyl Room Dev.app");
-const contents = path.join(appPath, "Contents");
-const resources = path.join(contents, "Resources");
-const executable = path.join(contents, "MacOS", "VinylRoomDev");
-const icon = path.join(root, "desktop", "assets", "icon.icns");
-
-execFileSync(process.execPath, [path.join(root, "scripts", "build-desktop-icon.mjs")], { cwd: root, stdio: "inherit" });
-
-await mkdir(path.dirname(executable), { recursive: true });
-await mkdir(resources, { recursive: true });
-await writeFile(path.join(resources, "project-path.txt"), `${root}\n`);
-await copyFile(icon, path.join(resources, "icon.icns"));
-await writeFile(path.join(contents, "Info.plist"), `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict>
-  <key>CFBundleDevelopmentRegion</key><string>en</string>
-  <key>CFBundleDisplayName</key><string>Vinyl Room Dev</string>
-  <key>CFBundleExecutable</key><string>VinylRoomDev</string>
-  <key>CFBundleIconFile</key><string>icon.icns</string>
-  <key>CFBundleIdentifier</key><string>com.vinylroom.dev</string>
-  <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
-  <key>CFBundleName</key><string>Vinyl Room Dev</string>
-  <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>1.0</string>
-  <key>CFBundleVersion</key><string>1</string>
-  <key>LSMinimumSystemVersion</key><string>12.0</string>
-  <key>NSHighResolutionCapable</key><true/>
-</dict></plist>
-`);
-await writeFile(executable, `#!/bin/zsh
-set -euo pipefail
-bundle_mac_os="$(cd "$(dirname "$0")" && pwd)"
-project_root="$(cat "$bundle_mac_os/../Resources/project-path.txt")"
-electron_binary="$project_root/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
-if [[ ! -x "$electron_binary" ]]; then
-  /usr/bin/osascript -e 'display dialog "Vinyl Room development dependencies are missing. Run npm ci in the project folder, then open Vinyl Room Dev again." buttons {"OK"} default button "OK" with title "Vinyl Room Dev"'
-  exit 1
-fi
-if /usr/bin/pgrep -f '/Vinyl Room.app/Contents/MacOS/Vinyl Room' >/dev/null 2>&1; then
-  /usr/bin/osascript -e 'tell application id "com.vinylroom.app" to quit' >/dev/null 2>&1 || true
-  for attempt in {1..30}; do
-    if ! /usr/bin/nc -z 127.0.0.1 17873 >/dev/null 2>&1; then break; fi
-    sleep 0.2
-  done
-fi
-cd "$project_root"
-unset ELECTRON_RUN_AS_NODE
-export VINYL_DESKTOP_DEV=1
-exec "$electron_binary" "$project_root/desktop/main.cjs"
-`);
-await chmod(executable, 0o755);
-
-const dockItems = execFileSync("defaults", ["read", "com.apple.dock", "persistent-apps"], { encoding: "utf8" });
-if (!dockItems.includes("com.vinylroom.dev")) {
-  const url = pathToFileURL(`${appPath}${path.sep}`).href;
-  const tile = `{ "tile-data" = { "file-data" = { "_CFURLString" = "${url}"; "_CFURLStringType" = 15; }; "file-label" = "Vinyl Room Dev"; "bundle-identifier" = "com.vinylroom.dev"; }; "tile-type" = "file-tile"; }`;
-  execFileSync("defaults", ["write", "com.apple.dock", "persistent-apps", "-array-add", tile]);
-  execFileSync("killall", ["Dock"]);
+const staging = path.join(root, ".desktop", "dev-launcher");
+const builtApp = path.join(root, ".desktop", "dev-release", "mac-arm64", "Vinyl Room.app");
+const appPath = path.join(os.homedir(), "Applications", "Vinyl Room.app");
+const oldAppPath = path.join(os.homedir(), "Applications", "Vinyl Room Dev.app");
+const rootPackage = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
+if (spawnSync("pgrep", ["-f", `${appPath}/Contents/MacOS/Vinyl Room`]).status === 0) {
+  throw new Error("Quit Vinyl Room before reinstalling the local launcher.");
 }
 
-console.log(`Vinyl Room Dev is installed and pinned in the Dock: ${appPath}`);
-console.log("Open that icon for the latest project code. Keep the source folder at its current path.");
+await mkdir(staging, { recursive: true });
+await copyFile(path.join(root, "desktop", "dev-bootstrap.cjs"), path.join(staging, "main.cjs"));
+await writeFile(path.join(staging, "package.json"), JSON.stringify({
+  name: "vinyl-room-localdev",
+  version: rootPackage.version,
+  description: rootPackage.description,
+  author: rootPackage.author,
+  main: "main.cjs",
+  private: true,
+}, null, 2));
+await writeFile(path.join(staging, "project-root.txt"), `${root}\n`);
+
+execFileSync(process.execPath, [path.join(root, "scripts", "build-desktop-icon.mjs")], { cwd: root, stdio: "inherit" });
+execFileSync(path.join(root, "node_modules", ".bin", "electron-builder"), [
+  "--config", "desktop/electron-builder.dev.cjs", "--mac", "dir", "--arm64",
+], { cwd: root, stdio: "inherit" });
+
+async function bundleId(appBundle) {
+  const plist = path.join(appBundle, "Contents", "Info.plist");
+  try { await access(plist); } catch { return null; }
+  try {
+    return execFileSync("/usr/libexec/PlistBuddy", [
+      "-c", "Print :CFBundleIdentifier", plist,
+    ], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  } catch {
+    return null;
+  }
+}
+
+const existingId = await bundleId(appPath);
+if (existingId && existingId !== "com.vinylroom.localdev") {
+  throw new Error(`${appPath} is a different app; it was not replaced.`);
+}
+await rm(appPath, { recursive: true, force: true });
+await mkdir(path.dirname(appPath), { recursive: true });
+execFileSync("ditto", [builtApp, appPath]);
+if (await bundleId(appPath) !== "com.vinylroom.localdev") {
+  throw new Error("The installed local launcher did not pass its bundle ID check.");
+}
+
+const tempDir = await mkdtemp(path.join(os.tmpdir(), "vinyl-room-dock-"));
+const dockFile = path.join(tempDir, "dock.plist");
+try {
+  execFileSync("defaults", ["export", "com.apple.dock", dockFile]);
+  const dockUpdate = `import plistlib,sys
+p=sys.argv[1]
+url=sys.argv[2]
+with open(p,"rb") as f: data=plistlib.load(f)
+apps=data.get("persistent-apps",[])
+apps=[item for item in apps if item.get("tile-data",{}).get("bundle-identifier") not in ("com.vinylroom.dev","com.vinylroom.localdev")]
+apps.append({"tile-data":{"file-data":{"_CFURLString":url,"_CFURLStringType":15},"file-label":"Vinyl Room","bundle-identifier":"com.vinylroom.localdev"},"tile-type":"file-tile"})
+data["persistent-apps"]=apps
+with open(p,"wb") as f: plistlib.dump(data,f)
+`;
+  execFileSync("python3", ["-c", dockUpdate, dockFile, pathToFileURL(`${appPath}${path.sep}`).href]);
+  execFileSync("defaults", ["import", "com.apple.dock", dockFile]);
+  execFileSync("killall", ["Dock"]);
+} finally {
+  await rm(tempDir, { recursive: true, force: true });
+}
+
+if (await bundleId(oldAppPath) === "com.vinylroom.dev") {
+  await rm(oldAppPath, { recursive: true, force: true });
+}
+
+console.log(`One Vinyl Room icon is installed in the Dock: ${appPath}`);
+console.log("Click it to open the current local project. You do not need to build a DMG for code changes.");
