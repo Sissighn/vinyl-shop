@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
+import { SEARCH_ALBUM_DRAG_TYPE } from "@/lib/wall";
+import { findWallDropTarget, type SlotRect } from "@/lib/wall-drag";
 
 export type RoomAlbum = {
   id: string;
@@ -17,6 +19,7 @@ type Props = {
   activeAlbumUri: string | null;
   onSlotClick: (index: number) => void;
   onSlotDrop: (from: number, to: number) => void;
+  onSearchAlbumDrop: (index: number, albumId: string) => void;
   onTonearmClick: () => void;
   onBackgroundClick: () => void;
 };
@@ -27,8 +30,7 @@ type SceneControls = {
   updateSlots: (albums: (RoomAlbum | null)[]) => void;
   highlightSlot: (index: number | null) => void;
 };
-type DragPreview = { x: number; y: number; album: RoomAlbum; target: number | null };
-type SlotRect = { left: number; top: number; width: number; height: number };
+type DragPreview = { x: number; y: number; size: number; album: RoomAlbum };
 
 const SLOT_POSITIONS = [
   [-4.75, 2.55], [-1.58, 2.55], [1.58, 2.55], [4.75, 2.55],
@@ -135,11 +137,13 @@ function makeSpeaker(parent: THREE.Object3D, x: number, wood: THREE.Material) {
   }
 }
 
-export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotClick, onSlotDrop, onTonearmClick, onBackgroundClick }: Props) {
+export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotClick, onSlotDrop, onSearchAlbumDrop, onTonearmClick, onBackgroundClick }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
+  const dragPreviewRef = useRef<HTMLDivElement>(null);
   const controlsRef = useRef<SceneControls | null>(null);
   const onSlotClickRef = useRef(onSlotClick);
   const onSlotDropRef = useRef(onSlotDrop);
+  const onSearchAlbumDropRef = useRef(onSearchAlbumDrop);
   const onTonearmClickRef = useRef(onTonearmClick);
   const onBackgroundClickRef = useRef(onBackgroundClick);
   const playingRef = useRef(playing);
@@ -147,12 +151,14 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
   const activeAlbumUriRef = useRef(activeAlbumUri);
   const [available, setAvailable] = useState(true);
   const [dragPreview, setDragPreview] = useState<DragPreview | null>(null);
+  const [dragTarget, setDragTarget] = useState<number | null>(null);
   const [slotRects, setSlotRects] = useState<SlotRect[]>([]);
   const [keyboardMoveFrom, setKeyboardMoveFrom] = useState<number | null>(null);
   const [announcement, setAnnouncement] = useState("");
 
   useEffect(() => { onSlotClickRef.current = onSlotClick; }, [onSlotClick]);
   useEffect(() => { onSlotDropRef.current = onSlotDrop; }, [onSlotDrop]);
+  useEffect(() => { onSearchAlbumDropRef.current = onSearchAlbumDrop; }, [onSearchAlbumDrop]);
   useEffect(() => { onTonearmClickRef.current = onTonearmClick; }, [onTonearmClick]);
   useEffect(() => { onBackgroundClickRef.current = onBackgroundClick; }, [onBackgroundClick]);
   useEffect(() => {
@@ -363,7 +369,9 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
     let reduceMotion = motionPreference.matches;
     let tonearmTarget = isPlaying ? -0.68 : 0.2;
     let tonearmHeightTarget = isPlaying ? 0.24 : 0.34;
-    let pointerDown: { index: number | null; x: number; y: number; dragging: boolean } | null = null;
+    let pointerDown: { index: number | null; x: number; y: number; dragging: boolean; coverSize: number } | null = null;
+    let projectedSlotRects: SlotRect[] = [];
+    let currentDragTarget: number | null = null;
     let highlightedSlot: number | null = null;
     let animation: {
       mesh: THREE.Mesh;
@@ -415,6 +423,19 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
         requestRender();
       });
     }
+    function swapLoadedCovers(from: number, to: number) {
+      if ((coverSources[from] && !coverTextures[from]) || (coverSources[to] && !coverTextures[to])) return;
+      [coverSources[from], coverSources[to]] = [coverSources[to], coverSources[from]];
+      [coverTextures[from], coverTextures[to]] = [coverTextures[to], coverTextures[from]];
+      coverRequests[from] += 1;
+      coverRequests[to] += 1;
+      for (const index of [from, to]) {
+        coverFaces[index].material.map = coverTextures[index];
+        coverFaces[index].material.needsUpdate = true;
+        coverFaces[index].visible = Boolean(coverTextures[index]);
+      }
+      requestRender();
+    }
     function animateRecord(index: number) {
       const source = sleeveMeshes[index];
       if (animation) {
@@ -430,7 +451,7 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
       requestRender();
     }
 
-    function getHit(event: PointerEvent): { kind: "slot"; index: number } | { kind: "tonearm" } | null {
+    function getHit(event: { clientX: number; clientY: number }): { kind: "slot"; index: number } | { kind: "tonearm" } | null {
       const bounds = renderer.domElement.getBoundingClientRect();
       pointer.set(
         ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
@@ -455,24 +476,55 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
       if (index !== null) (sleeveMeshes[index].material as THREE.MeshStandardMaterial).emissive.setHex(0x684027);
       requestRender();
     }
+    function setSourceLifted(index: number, lifted: boolean) {
+      sleeveMeshes[index].visible = !lifted;
+      coverFaces[index].visible = !lifted && Boolean(coverTextures[index]);
+      requestRender();
+    }
+    function wallDragTarget(event: { clientX: number; clientY: number }, source: number, coverSize: number) {
+      const bounds = renderer.domElement.getBoundingClientRect();
+      return findWallDropTarget(event.clientX - bounds.left, event.clientY - bounds.top,
+        coverSize, projectedSlotRects, source);
+    }
+    function clearWallDrag(source: number | null, lifted: boolean) {
+      if (lifted && source !== null) setSourceLifted(source, false);
+      currentDragTarget = null;
+      setDragTarget(null);
+      highlightSlot(null);
+      setDragPreview(null);
+      renderer.domElement.style.cursor = "default";
+    }
     function handlePointerMove(event: PointerEvent) {
-      const hit = getHit(event);
       if (pointerDown?.index !== null && pointerDown?.index !== undefined && slotsRef.current[pointerDown.index]) {
-        if (pointerDown.dragging || Math.hypot(event.clientX - pointerDown.x, event.clientY - pointerDown.y) > 8) {
-          pointerDown.dragging = true;
-          const target = hit?.kind === "slot" && hit.index !== pointerDown.index ? hit.index : null;
-          highlightSlot(target);
-          setDragPreview({ x: event.clientX, y: event.clientY, album: slotsRef.current[pointerDown.index]!, target });
+        if (pointerDown.dragging || Math.hypot(event.clientX - pointerDown.x, event.clientY - pointerDown.y) > 6) {
+          if (!pointerDown.dragging) {
+            pointerDown.dragging = true;
+            setSourceLifted(pointerDown.index, true);
+            setDragPreview({ x: event.clientX, y: event.clientY, size: pointerDown.coverSize,
+              album: slotsRef.current[pointerDown.index]! });
+          }
+          const target = wallDragTarget(event, pointerDown.index, pointerDown.coverSize);
+          if (target !== currentDragTarget) {
+            currentDragTarget = target;
+            setDragTarget(target);
+            highlightSlot(target);
+          }
+          if (dragPreviewRef.current) {
+            dragPreviewRef.current.style.transform = `translate3d(${event.clientX}px, ${event.clientY}px, 0) translate(-50%, -50%)`;
+          }
           renderer.domElement.style.cursor = "grabbing";
           return;
         }
       }
+      const hit = getHit(event);
       renderer.domElement.style.cursor = hit ? "pointer" : "default";
     }
     function handlePointerDown(event: PointerEvent) {
       if (event.button !== 0) return;
       const hit = getHit(event);
-      pointerDown = { index: hit?.kind === "slot" ? hit.index : null, x: event.clientX, y: event.clientY, dragging: false };
+      const index = hit?.kind === "slot" ? hit.index : null;
+      const coverSize = index === null ? 0 : Math.max(84, Math.min(150, (projectedSlotRects[index]?.width ?? 110) * 0.9));
+      pointerDown = { index, x: event.clientX, y: event.clientY, dragging: false, coverSize };
       renderer.domElement.setPointerCapture(event.pointerId);
       if (hit?.kind === "tonearm") onTonearmClickRef.current();
     }
@@ -481,25 +533,50 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
       const start = pointerDown;
       pointerDown = null;
       if (renderer.domElement.hasPointerCapture(event.pointerId)) renderer.domElement.releasePointerCapture(event.pointerId);
-      const hit = getHit(event);
-      highlightSlot(null);
-      setDragPreview(null);
       if (start.dragging && start.index !== null) {
-        if (hit?.kind === "slot" && hit.index !== start.index) onSlotDropRef.current(start.index, hit.index);
+        const target = wallDragTarget(event, start.index, start.coverSize);
+        clearWallDrag(start.index, true);
+        if (target !== null) {
+          swapLoadedCovers(start.index, target);
+          onSlotDropRef.current(start.index, target);
+        }
         return;
       }
+      const hit = getHit(event);
+      clearWallDrag(null, false);
       if (hit?.kind === "slot" && hit.index === start.index) onSlotClickRef.current(hit.index);
       else if (!hit && start.index === null) onBackgroundClickRef.current();
     }
     function handlePointerCancel() {
+      if (pointerDown?.dragging && pointerDown.index !== null) setSourceLifted(pointerDown.index, false);
       pointerDown = null;
-      highlightSlot(null);
-      setDragPreview(null);
+      clearWallDrag(null, false);
+    }
+    function handleSearchDragOver(event: DragEvent) {
+      if (!event.dataTransfer?.types.includes(SEARCH_ALBUM_DRAG_TYPE)) return;
+      const hit = getHit(event);
+      const target = hit?.kind === "slot" ? hit.index : null;
+      highlightSlot(target);
+      event.dataTransfer.dropEffect = target === null ? "none" : "copy";
+      if (target !== null) event.preventDefault();
+    }
+    function clearSearchDragHighlight() { highlightSlot(null); }
+    function handleSearchAlbumDrop(event: DragEvent) {
+      const albumId = event.dataTransfer?.getData(SEARCH_ALBUM_DRAG_TYPE);
+      const hit = getHit(event);
+      clearSearchDragHighlight();
+      if (!albumId || hit?.kind !== "slot") return;
+      event.preventDefault();
+      onSearchAlbumDropRef.current(hit.index, albumId);
     }
     renderer.domElement.addEventListener("pointermove", handlePointerMove);
     renderer.domElement.addEventListener("pointerdown", handlePointerDown);
     renderer.domElement.addEventListener("pointerup", handlePointerUp);
     renderer.domElement.addEventListener("pointercancel", handlePointerCancel);
+    renderer.domElement.addEventListener("dragover", handleSearchDragOver);
+    renderer.domElement.addEventListener("dragleave", clearSearchDragHighlight);
+    renderer.domElement.addEventListener("drop", handleSearchAlbumDrop);
+    window.addEventListener("dragend", clearSearchDragHighlight);
 
     const resize = () => {
       const width = mount.clientWidth;
@@ -512,7 +589,7 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
       camera.updateProjectionMatrix();
       camera.lookAt(cameraTarget);
       renderer.setSize(width, height, false);
-      setSlotRects(SLOT_POSITIONS.map(([x, y]) => {
+      projectedSlotRects = SLOT_POSITIONS.map(([x, y]) => {
         const leftTop = new THREE.Vector3(x - 0.81, y + 0.81, -2.58).project(camera);
         const rightBottom = new THREE.Vector3(x + 0.81, y - 0.81, -2.58).project(camera);
         return {
@@ -521,7 +598,8 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
           width: (rightBottom.x - leftTop.x) * width / 2,
           height: (leftTop.y - rightBottom.y) * height / 2,
         };
-      }));
+      });
+      setSlotRects(projectedSlotRects);
       requestRender();
     };
     const resizeObserver = new ResizeObserver(resize);
@@ -581,6 +659,10 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
       renderer.domElement.removeEventListener("pointerdown", handlePointerDown);
       renderer.domElement.removeEventListener("pointerup", handlePointerUp);
       renderer.domElement.removeEventListener("pointercancel", handlePointerCancel);
+      renderer.domElement.removeEventListener("dragover", handleSearchDragOver);
+      renderer.domElement.removeEventListener("dragleave", clearSearchDragHighlight);
+      renderer.domElement.removeEventListener("drop", handleSearchAlbumDrop);
+      window.removeEventListener("dragend", clearSearchDragHighlight);
       const materials = new Set<THREE.Material>();
       scene.traverse((object) => {
         if (!(object instanceof THREE.Mesh)) return;
@@ -644,12 +726,23 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
             key={index}
             type="button"
             data-wall-slot={index}
-            className="wall-keyboard-slot"
+            className={`wall-keyboard-slot ${dragTarget === index ? "drag-target" : ""}`}
             style={slotRects[index]}
             aria-label={`Wall spot ${index + 1}: ${slots[index] ? `${slots[index].title} by ${slots[index].artist}` : "empty"}`}
             aria-describedby="wall-keyboard-help"
             aria-pressed={keyboardMoveFrom === index}
             onClick={() => activateSlot(index)}
+            onDragOver={(event) => {
+              if (!available || !event.dataTransfer.types.includes(SEARCH_ALBUM_DRAG_TYPE)) return;
+              event.preventDefault();
+              event.dataTransfer.dropEffect = "copy";
+            }}
+            onDrop={(event) => {
+              if (!available) {
+                const albumId = event.dataTransfer.getData(SEARCH_ALBUM_DRAG_TYPE);
+                if (albumId) { event.preventDefault(); onSearchAlbumDrop(index, albumId); }
+              }
+            }}
             onKeyDown={(event) => handleSlotKey(event, index)}
             onFocus={() => controlsRef.current?.highlightSlot(index)}
             onBlur={() => controlsRef.current?.highlightSlot(null)}
@@ -657,12 +750,14 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
         ))}
       </div>
       {dragPreview && (
-        <div className="wall-drag-preview" style={{ left: dragPreview.x, top: dragPreview.y }} aria-hidden="true">
+        <div ref={dragPreviewRef} className="wall-drag-preview" style={{
+          width: dragPreview.size, height: dragPreview.size,
+          transform: `translate3d(${dragPreview.x}px, ${dragPreview.y}px, 0) translate(-50%, -50%)`,
+        }} aria-hidden="true">
           {dragPreview.album.image ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={dragPreview.album.image} alt="" />
           ) : <span />}
-          <small>{dragPreview.target === null ? "DRAG TO A WALL SPOT" : `SWAP WITH SPOT ${dragPreview.target + 1}`}</small>
         </div>
       )}
     </div>
