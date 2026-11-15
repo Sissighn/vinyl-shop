@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   turbopack: { root: process.cwd() },
   agentRules: false,
+  devIndicators: false,
   ...(process.env.VINYL_DESKTOP_BUILD === "1" ? {
     output: "standalone" as const,
     distDir: ".next-desktop",
