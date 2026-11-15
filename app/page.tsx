@@ -1,11 +1,11 @@
 "use client";
 
-import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Disc3, Download, ExternalLink, Music2, Pause, Play, Plus, Repeat2, Search, Shuffle, SkipBack, SkipForward, Trash2, Undo2, Upload, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Disc3, Download, ExternalLink, Music2, Pause, Play, Plus, Redo2, Repeat2, Search, Shuffle, SkipBack, SkipForward, Trash2, Undo2, Upload, X } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { RoomAlbum } from "@/components/vinyl-room-scene";
 import { SpotifyLogo } from "@/components/spotify-logo";
 import { pendingPlayback, playbackPollDelay, shouldApplyPlayback, type PendingPlayback } from "@/lib/playback-sync";
-import { exportWall, importWall, isWall, spotifyAlbumUrl, spotifyTrackUrl, swapWallSlots, WALL_KEY } from "@/lib/wall";
+import { exportWall, importWall, isWall, SEARCH_ALBUM_DRAG_TYPE, spotifyAlbumUrl, spotifyTrackUrl, swapWallSlots, WALL_KEY } from "@/lib/wall";
 
 const VinylRoomScene = lazy(() => import("@/components/vinyl-room-scene"));
 
@@ -76,6 +76,7 @@ function trackDuration(milliseconds: number) {
 export default function Home() {
   const [slots, setSlots] = useState<(RoomAlbum | null)[]>(EMPTY_SLOTS);
   const [wallHistory, setWallHistory] = useState<(RoomAlbum | null)[][]>([]);
+  const [wallFuture, setWallFuture] = useState<(RoomAlbum | null)[][]>([]);
   const [connected, setConnected] = useState(false);
   const [devices, setDevices] = useState<SpotifyDevice[]>([]);
   const [deviceId, setDeviceId] = useState<string | null>(null);
@@ -104,14 +105,22 @@ export default function Home() {
   const [searchTotal, setSearchTotal] = useState(0);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [draggedAlbumId, setDraggedAlbumId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [guideDismissed, setGuideDismissed] = useState(false);
   const albumIdRef = useRef<string | null>(null);
   const albumPanelRef = useRef<HTMLElement | null>(null);
+  const arrangePanelRef = useRef<HTMLElement | null>(null);
   const activeSlotRef = useRef<number | null>(null);
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const playbackRevisionRef = useRef(0);
   const pendingPlaybackRef = useRef<PendingPlayback | null>(null);
+
+  useEffect(() => {
+    if (!message) return;
+    const timer = window.setTimeout(() => setMessage(null), 5_000);
+    return () => window.clearTimeout(timer);
+  }, [message]);
 
   function markPlaybackChange(expected: { trackUri?: string; playing?: boolean } = {}) {
     const revision = ++playbackRevisionRef.current;
@@ -234,17 +243,28 @@ export default function Home() {
 
   useEffect(() => {
     if (!arranging) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (!(event.target instanceof Node) || arrangePanelRef.current?.contains(event.target)) return;
+      if (event.target instanceof HTMLCanvasElement && event.target.classList.contains("room-canvas")) return;
+      setArranging(false);
+      setTargetSlot(null);
+    };
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       setArranging(false);
       setTargetSlot(null);
+      window.setTimeout(() => document.querySelector<HTMLButtonElement>(".arrange-button")?.focus(), 0);
     };
+    document.addEventListener("pointerdown", closeOutside, true);
     document.addEventListener("keydown", closeOnEscape);
-    return () => document.removeEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside, true);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
   }, [arranging]);
 
   useEffect(() => {
-    if (!arranging || targetSlot === null || !connected) return;
+    if (!arranging || !connected) return;
     const timer = window.setTimeout(() => document.querySelector<HTMLInputElement>(".panel-search input")?.focus(), 0);
     return () => window.clearTimeout(timer);
   }, [arranging, targetSlot, connected]);
@@ -412,9 +432,10 @@ export default function Home() {
     setDetailsOpen(true);
   }, [arranging, selected, slots]);
 
-  const commitWall = useCallback((nextSlots: (RoomAlbum | null)[], notice: string) => {
+  const commitWall = useCallback((nextSlots: (RoomAlbum | null)[], notice: string | null) => {
     if (slots.every((album, index) => album?.id === nextSlots[index]?.id)) return false;
     setWallHistory((history) => [...history.slice(-19), slots]);
+    setWallFuture([]);
     setSlots(nextSlots);
     window.localStorage.setItem(WALL_KEY, JSON.stringify(nextSlots));
     setMessage(notice);
@@ -424,7 +445,7 @@ export default function Home() {
   const handleSlotDrop = useCallback((from: number, to: number) => {
     if (from === to || !slots[from]) return;
     const nextSlots = swapWallSlots(slots, from, to);
-    commitWall(nextSlots, `Wall spots ${from + 1} and ${to + 1} updated.`);
+    commitWall(nextSlots, null);
     setDetailsOpen(false);
     setTargetSlot(null);
   }, [slots, commitWall]);
@@ -433,10 +454,22 @@ export default function Home() {
     const previous = wallHistory.at(-1);
     if (!previous) return;
     setWallHistory((history) => history.slice(0, -1));
+    setWallFuture((future) => [...future.slice(-19), slots]);
     setSlots(previous);
     window.localStorage.setItem(WALL_KEY, JSON.stringify(previous));
     setTargetSlot(null);
-    setMessage("Last wall change undone.");
+    setMessage(null);
+  }
+
+  function redoWall() {
+    const next = wallFuture.at(-1);
+    if (!next) return;
+    setWallFuture((future) => future.slice(0, -1));
+    setWallHistory((history) => [...history.slice(-19), slots]);
+    setSlots(next);
+    window.localStorage.setItem(WALL_KEY, JSON.stringify(next));
+    setTargetSlot(null);
+    setMessage(null);
   }
 
   function removeAlbum(index: number) {
@@ -656,14 +689,25 @@ export default function Home() {
     if (await sendPlaybackControl({ action: "seek", positionMs })) setProgressMs(positionMs);
   }
 
-  function placeAlbum(album: RoomAlbum) {
-    if (targetSlot === null) {
-      setMessage("Choose a spot on the wall first.");
-      return;
-    }
-    const nextSlots = slots.map((item, index) => index === targetSlot ? album : item);
+  function placeAlbumAt(album: RoomAlbum, index: number) {
+    const nextSlots = slots.map((item, slotIndex) => slotIndex === index ? album : item);
     commitWall(nextSlots, `${album.title} is now on the wall.`);
     setTargetSlot(null);
+  }
+
+  function placeAlbum(album: RoomAlbum) {
+    if (targetSlot === null) {
+      setMessage("Drag this album onto a wall spot, or select a spot first.");
+      return;
+    }
+    placeAlbumAt(album, targetSlot);
+  }
+
+  function dropSearchAlbum(index: number, albumId: string) {
+    if (!arranging) return;
+    const album = searchResults.find((result) => result.id === albumId);
+    if (album) placeAlbumAt(album, index);
+    setDraggedAlbumId(null);
   }
 
   const pageCount = Math.min(101, Math.max(1, Math.ceil(searchTotal / SEARCH_PAGE_SIZE)));
@@ -679,36 +723,27 @@ export default function Home() {
           activeAlbumUri={currentTrack?.albumUri ?? null}
           onSlotClick={handleSlotClick}
           onSlotDrop={handleSlotDrop}
+          onSearchAlbumDrop={dropSearchAlbum}
           onTonearmClick={() => void togglePlayback()}
-          onBackgroundClick={() => setDetailsOpen(false)}
+          onBackgroundClick={() => { setDetailsOpen(false); setArranging(false); setTargetSlot(null); }}
         />
       </Suspense>
       <div className="room-vignette" aria-hidden="true" />
-
-      {(slots.some(Boolean) || currentTrack) && <div className="room-attribution" aria-label="Album artwork and metadata provided by Spotify"><span>CONTENT FROM</span><SpotifyLogo /></div>}
 
       <header className="room-header">
         <div className="room-brand"><Disc3 size={20} strokeWidth={1.3} /><span>VINYL <em>ROOM</em></span></div>
         <div className="room-header-center">YOUR PERSONAL VINYL ROOM</div>
         {connected && needsReconnect ? (
-          <a className="connect-link" href="/api/spotify/login" onClick={() => setConnected(false)}>RECONNECT SPOTIFY</a>
+          <a className="connect-link" href="/api/spotify/login" onClick={() => setConnected(false)}><SpotifyLogo className="connect-spotify-logo" /> RECONNECT</a>
         ) : connected ? (
           <div className="spotify-connection">
             <span className="spotify-status" title={currentDevice?.name}><span className="status-dot" /><SpotifyLogo /> <span>{currentDevice ? `ON ${currentDevice.name.toUpperCase()}` : "OPEN ON MAC"}</span></span>
             <button className="spotify-disconnect" onClick={() => void disconnectSpotify()} title="Disconnect Spotify from Vinyl Room">Disconnect</button>
           </div>
         ) : (
-          <a className="connect-link" href="/api/spotify/login"><span className="spotify-symbol">≋</span> CONNECT SPOTIFY</a>
+          <a className="connect-link" href="/api/spotify/login"><SpotifyLogo className="connect-spotify-logo" /> CONNECT</a>
         )}
       </header>
-
-      {arranging && (
-        <div className="room-hint">
-          <span className="hint-line" />
-          {targetSlot === null ? "CHOOSE A SPOT ON THE WALL" : `SPOT ${targetSlot + 1} SELECTED · CHOOSE AN ALBUM`}
-          <span className="hint-line" />
-        </div>
-      )}
 
       {!connected && !arranging && !guideDismissed && (
         <aside className="setup-guide" aria-label="Getting started">
@@ -767,40 +802,37 @@ export default function Home() {
             </div>
           )}
         </div>
-        <div className="wall-footer-actions">
-          {wallHistory.length > 0 && <button className="wall-undo" onClick={undoWall} aria-label="Undo last wall change" title="Undo last wall change"><Undo2 size={16} /><span>UNDO</span></button>}
-          <button className={`arrange-button ${arranging ? "active" : ""}`} onClick={() => {
-            setArranging((value) => !value);
+        {!arranging && <div className="wall-footer-actions">
+          <button className="arrange-button" onClick={() => {
+            setArranging(true);
             setDetailsOpen(false);
             setTargetSlot(null);
-          }}>
-            {arranging ? <Check size={15} /> : <Plus size={15} />}
-            {arranging ? "DONE" : "ARRANGE WALL"}
-          </button>
-        </div>
+          }}><Plus size={15} /> ARRANGE WALL</button>
+        </div>}
       </footer>
 
       {arranging && (
-        <aside className="library-panel" aria-label="Search Spotify albums for the wall">
+        <aside className={`library-panel arrange-panel ${draggedAlbumId ? "dragging-album" : ""}`} ref={arrangePanelRef} aria-label="Search Spotify albums for the wall">
           <div className="panel-heading">
-            <div><SpotifyLogo className="panel-spotify-logo" /><h2>Arrange the wall</h2></div>
-            <button onClick={() => { setArranging(false); setTargetSlot(null); }} aria-label="Close"><X size={18} /></button>
+            <h2>Arrange the wall</h2>
+            <button onClick={() => {
+              setArranging(false);
+              setTargetSlot(null);
+              window.setTimeout(() => document.querySelector<HTMLButtonElement>(".arrange-button")?.focus(), 0);
+            }} aria-label="Close"><X size={18} /></button>
           </div>
-          <p className="panel-description">Choose a wall spot, then find an album. Your Spotify library is not changed.</p>
+          <p className="panel-description">Search, then drag an album onto any wall spot to add or replace it. Or select a spot and click an album. Your Spotify library is not changed.</p>
           <div className="wall-tools" role="group" aria-label="Wall tools">
             <button onClick={undoWall} disabled={wallHistory.length === 0} title="Undo last wall change"><Undo2 size={14} /> Undo</button>
+            <button onClick={redoWall} disabled={wallFuture.length === 0} title="Redo last wall change"><Redo2 size={14} /> Redo</button>
             <button onClick={downloadWall} title="Export wall to a JSON file"><Download size={14} /> Export</button>
             <button onClick={() => importInputRef.current?.click()} title="Import a Vinyl Room wall file"><Upload size={14} /> Import</button>
             <input ref={importInputRef} type="file" accept=".json,application/json" className="sr-only" tabIndex={-1} onChange={(event) => void loadWallFile(event.currentTarget.files?.[0])} />
           </div>
-          <div className="selected-wall-spot" aria-live="polite">
-            {targetSlot === null ? <span>Select one of the eight wall spots to add or replace an album.</span> : (
-              <>
+          {targetSlot !== null && <div className="selected-wall-spot" aria-live="polite">
                 <span><strong>Spot {targetSlot + 1}</strong> · {slots[targetSlot]?.title ?? "Empty"}</span>
                 {slots[targetSlot] && <button onClick={() => removeAlbum(targetSlot)} aria-label={`Remove ${slots[targetSlot]?.title} from spot ${targetSlot + 1}`}><Trash2 size={14} /> Remove</button>}
-              </>
-            )}
-          </div>
+          </div>}
           {!connected ? (
             <div className="panel-empty">
               <Music2 size={25} strokeWidth={1.3} />
@@ -841,7 +873,20 @@ export default function Home() {
                   <div className="panel-albums">
                     {searchResults.map((album) => (
                       <div className="album-result" key={album.id}>
-                        <button onClick={() => placeAlbum(album)} disabled={targetSlot === null} title={targetSlot === null ? "Choose a wall spot first" : `Add ${album.title} by ${album.artist} to spot ${targetSlot + 1}`} aria-label={`Add ${album.title} by ${album.artist} to the selected wall spot`}>
+                        <button
+                          draggable
+                          onDragStart={(event) => {
+                            event.dataTransfer.setData(SEARCH_ALBUM_DRAG_TYPE, album.id);
+                            event.dataTransfer.effectAllowed = "copy";
+                            const cover = event.currentTarget.querySelector("img");
+                            if (cover) event.dataTransfer.setDragImage(cover, cover.clientWidth / 2, cover.clientHeight / 2);
+                            setDraggedAlbumId(album.id);
+                          }}
+                          onDragEnd={() => setDraggedAlbumId(null)}
+                          onClick={() => placeAlbum(album)}
+                          title={targetSlot === null ? `Drag ${album.title} by ${album.artist} to a wall spot` : `Click to add ${album.title} to spot ${targetSlot + 1}, or drag it to another spot`}
+                          aria-label={targetSlot === null ? `Drag ${album.title} by ${album.artist} to a wall spot` : `Add ${album.title} by ${album.artist} to spot ${targetSlot + 1}`}
+                        >
                           {album.image ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={album.image} alt="" />
@@ -868,7 +913,7 @@ export default function Home() {
       {detailsOpen && selected && !arranging && (
         <aside className="library-panel album-panel" ref={albumPanelRef} aria-label={`Tracks on ${selected.title}`}>
           <div className="panel-heading">
-            <div><SpotifyLogo className="panel-spotify-logo" /><h2>{selected.title}</h2></div>
+            <h2>{selected.title}</h2>
             <button onClick={() => {
               setDetailsOpen(false);
               const slot = activeSlotRef.current;
