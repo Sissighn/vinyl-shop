@@ -1,6 +1,7 @@
 import type { RoomAlbum } from "@/components/vinyl-room-scene";
 
 export const WALL_KEY = "vinyl-room-wall-v2";
+export const SEARCH_ALBUM_DRAG_TYPE = "application/x-vinyl-room-album-id";
 
 export function isRoomAlbum(value: unknown): value is RoomAlbum {
   if (!value || typeof value !== "object") return false;
