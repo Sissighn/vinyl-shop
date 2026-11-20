@@ -3,9 +3,10 @@ const fs = require("node:fs");
 const net = require("node:net");
 const path = require("node:path");
 
-const desktopDev = !app.isPackaged && process.env.VINYL_DESKTOP_DEV === "1";
+const desktopDev = process.env.VINYL_DESKTOP_DEV === "1" &&
+  (!app.isPackaged || process.env.VINYL_DESKTOP_LOCAL_APP === "1");
 if (desktopDev) {
-  app.setName("Vinyl Room Dev");
+  app.setName("Vinyl Room");
   app.setPath("userData", path.join(app.getPath("appData"), "vinyl-room"));
 }
 let roomWindow;
@@ -197,7 +198,7 @@ function installMenu() {
 }
 
 app.whenReady().then(async () => {
-  if (desktopDev && process.platform === "darwin") {
+  if (desktopDev && !app.isPackaged && process.platform === "darwin") {
     const devIcon = path.join(__dirname, "..", ".desktop", "icon.iconset", "icon_512x512@2x.png");
     if (fs.existsSync(devIcon)) app.dock.setIcon(devIcon);
   }
