@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Vinyl Room — Your personal listening room",
+  title: "Vinyl Room",
   description: "An interactive 3D room for your favorite Spotify albums.",
   icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
 };
