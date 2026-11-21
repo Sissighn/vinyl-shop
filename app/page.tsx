@@ -575,9 +575,11 @@ export default function Home() {
       setMessage("Open Spotify on your Mac, then choose a track again.");
       return;
     }
+    const wasPlaying = playing;
     setPlaybackBusy(true);
-    const revision = markPlaybackChange({ playing: !playing });
-    if (!playing) {
+    const revision = markPlaybackChange({ playing: !wasPlaying });
+    setPlaying(!wasPlaying);
+    if (!wasPlaying) {
       try {
         let response = await fetch("/api/spotify/play", {
           method: "PUT",
@@ -596,14 +598,14 @@ export default function Home() {
             }),
           });
         }
-        if (response.ok) {
-          setPlaying(true);
-        } else {
+        if (!response.ok) {
           clearFailedPlaybackChange(revision);
+          setPlaying(wasPlaying);
           setMessage((await responseError(response, "Spotify could not start playback.")).message);
         }
       } catch {
         clearFailedPlaybackChange(revision);
+        setPlaying(wasPlaying);
         setMessage("The Spotify connection is currently unavailable.");
       } finally {
         setPlaybackBusy(false);
@@ -616,14 +618,14 @@ export default function Home() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ deviceId }),
       });
-      if (response.ok) {
-        setPlaying(false);
-      } else {
+      if (!response.ok) {
         clearFailedPlaybackChange(revision);
+        setPlaying(wasPlaying);
         setMessage((await responseError(response, "Spotify could not pause playback.")).message);
       }
     } catch {
       clearFailedPlaybackChange(revision);
+      setPlaying(wasPlaying);
       setMessage("The Spotify connection is currently unavailable.");
     } finally {
       setPlaybackBusy(false);
