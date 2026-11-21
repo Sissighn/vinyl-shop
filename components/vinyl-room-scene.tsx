@@ -33,10 +33,16 @@ type SceneControls = {
 type DragPreview = { x: number; y: number; size: number; album: RoomAlbum };
 
 const SLOT_POSITIONS = [
-  [-4.75, 2.55], [-1.58, 2.55], [1.58, 2.55], [4.75, 2.55],
-  [-4.75, 0.43], [-1.58, 0.43], [1.58, 0.43], [4.75, 0.43],
+  [-4.75, 2.55],
+  [-1.58, 2.55],
+  [1.58, 2.55],
+  [4.75, 2.55],
+  [-4.75, 0.43],
+  [-1.58, 0.43],
+  [1.58, 0.43],
+  [4.75, 0.43],
 ] as const;
-const RECORD_RADIANS_PER_SECOND = (Math.PI * 2 * 33 + Math.PI * 2 / 3) / 60;
+const RECORD_RADIANS_PER_SECOND = (Math.PI * 2 * 33 + (Math.PI * 2) / 3) / 60;
 
 function createWoodTexture() {
   const canvas = document.createElement("canvas");
@@ -48,12 +54,21 @@ function createWoodTexture() {
   context.fillRect(0, 0, canvas.width, canvas.height);
   for (let x = 0; x < canvas.width; x += 1) {
     const wave = Math.sin(x * 0.083) * 8 + Math.sin(x * 0.018) * 18;
-    const lightness = Math.floor(13 + 9 * Math.sin(x * 0.031) + 5 * Math.sin(x * 0.18));
+    const lightness = Math.floor(
+      13 + 9 * Math.sin(x * 0.031) + 5 * Math.sin(x * 0.18),
+    );
     context.strokeStyle = `rgba(29,12,5,${Math.max(0.025, (lightness + 13) / 230)})`;
     context.lineWidth = 1 + (x % 7 === 0 ? 1 : 0);
     context.beginPath();
     context.moveTo(x, 0);
-    context.bezierCurveTo(x + wave, 70, x - wave * 0.7, 180, x + wave * 0.4, 256);
+    context.bezierCurveTo(
+      x + wave,
+      70,
+      x - wave * 0.7,
+      180,
+      x + wave * 0.4,
+      256,
+    );
     context.stroke();
   }
   const texture = new THREE.CanvasTexture(canvas);
@@ -72,7 +87,10 @@ function box(
   material: THREE.Material,
   position: [number, number, number],
 ) {
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material);
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(width, height, depth),
+    material,
+  );
   mesh.position.set(...position);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
@@ -88,7 +106,10 @@ function cylinder(
   position: [number, number, number],
   segments = 48,
 ) {
-  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, height, segments), material);
+  const mesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(radius, radius, height, segments),
+    material,
+  );
   mesh.position.set(...position);
   mesh.castShadow = true;
   mesh.receiveShadow = true;
@@ -104,9 +125,15 @@ function rod(
   material: THREE.Material,
 ) {
   const vector = new THREE.Vector3().subVectors(to, from);
-  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, vector.length(), 12), material);
+  const mesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(radius, radius, vector.length(), 12),
+    material,
+  );
   mesh.position.copy(from).addScaledVector(vector, 0.5);
-  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vector.normalize());
+  mesh.quaternion.setFromUnitVectors(
+    new THREE.Vector3(0, 1, 0),
+    vector.normalize(),
+  );
   mesh.castShadow = true;
   parent.add(mesh);
   return mesh;
@@ -116,28 +143,62 @@ function makeSpeaker(parent: THREE.Object3D, x: number, wood: THREE.Material) {
   const speaker = new THREE.Group();
   speaker.position.set(x, -0.25, 0.85);
   parent.add(speaker);
-  const charcoal = new THREE.MeshStandardMaterial({ color: 0x191715, roughness: 0.78 });
-  const grille = new THREE.MeshStandardMaterial({ color: 0x292420, roughness: 0.96 });
-  const cone = new THREE.MeshStandardMaterial({ color: 0x131312, roughness: 0.88 });
-  const metal = new THREE.MeshStandardMaterial({ color: 0x766c5e, metalness: 0.7, roughness: 0.32 });
+  const charcoal = new THREE.MeshStandardMaterial({
+    color: 0x191715,
+    roughness: 0.78,
+  });
+  const grille = new THREE.MeshStandardMaterial({
+    color: 0x292420,
+    roughness: 0.96,
+  });
+  const cone = new THREE.MeshStandardMaterial({
+    color: 0x131312,
+    roughness: 0.88,
+  });
+  const metal = new THREE.MeshStandardMaterial({
+    color: 0x766c5e,
+    metalness: 0.7,
+    roughness: 0.32,
+  });
   box(speaker, 1.55, 1.62, 0.92, wood, [0, 0, 0]);
   box(speaker, 1.37, 1.44, 0.045, grille, [0, 0, 0.49]);
   box(speaker, 1.49, 0.06, 0.99, charcoal, [0, -0.76, 0]);
-  for (const [y, radius] of [[0.26, 0.36], [-0.38, 0.25]] as const) {
-    const outer = new THREE.Mesh(new THREE.TorusGeometry(radius, 0.032, 10, 48), metal);
+  for (const [y, radius] of [
+    [0.26, 0.36],
+    [-0.38, 0.25],
+  ] as const) {
+    const outer = new THREE.Mesh(
+      new THREE.TorusGeometry(radius, 0.032, 10, 48),
+      metal,
+    );
     outer.position.set(0, y, 0.54);
     speaker.add(outer);
-    const driver = new THREE.Mesh(new THREE.CircleGeometry(radius * 0.86, 48), cone);
+    const driver = new THREE.Mesh(
+      new THREE.CircleGeometry(radius * 0.86, 48),
+      cone,
+    );
     driver.position.set(0, y, 0.55);
     speaker.add(driver);
-    const dustCap = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.32, 24, 12), charcoal);
+    const dustCap = new THREE.Mesh(
+      new THREE.SphereGeometry(radius * 0.32, 24, 12),
+      charcoal,
+    );
     dustCap.scale.z = 0.32;
     dustCap.position.set(0, y, 0.57);
     speaker.add(dustCap);
   }
 }
 
-export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotClick, onSlotDrop, onSearchAlbumDrop, onTonearmClick, onBackgroundClick }: Props) {
+export default function VinylRoomScene({
+  slots,
+  playing,
+  activeAlbumUri,
+  onSlotClick,
+  onSlotDrop,
+  onSearchAlbumDrop,
+  onTonearmClick,
+  onBackgroundClick,
+}: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const dragPreviewRef = useRef<HTMLDivElement>(null);
   const controlsRef = useRef<SceneControls | null>(null);
@@ -156,11 +217,21 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
   const [keyboardMoveFrom, setKeyboardMoveFrom] = useState<number | null>(null);
   const [announcement, setAnnouncement] = useState("");
 
-  useEffect(() => { onSlotClickRef.current = onSlotClick; }, [onSlotClick]);
-  useEffect(() => { onSlotDropRef.current = onSlotDrop; }, [onSlotDrop]);
-  useEffect(() => { onSearchAlbumDropRef.current = onSearchAlbumDrop; }, [onSearchAlbumDrop]);
-  useEffect(() => { onTonearmClickRef.current = onTonearmClick; }, [onTonearmClick]);
-  useEffect(() => { onBackgroundClickRef.current = onBackgroundClick; }, [onBackgroundClick]);
+  useEffect(() => {
+    onSlotClickRef.current = onSlotClick;
+  }, [onSlotClick]);
+  useEffect(() => {
+    onSlotDropRef.current = onSlotDrop;
+  }, [onSlotDrop]);
+  useEffect(() => {
+    onSearchAlbumDropRef.current = onSearchAlbumDrop;
+  }, [onSearchAlbumDrop]);
+  useEffect(() => {
+    onTonearmClickRef.current = onTonearmClick;
+  }, [onTonearmClick]);
+  useEffect(() => {
+    onBackgroundClickRef.current = onBackgroundClick;
+  }, [onBackgroundClick]);
   useEffect(() => {
     slotsRef.current = slots;
     controlsRef.current?.updateSlots(slots);
@@ -183,7 +254,10 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
 
     let renderer: THREE.WebGLRenderer;
     try {
-      renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "default" });
+      renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        powerPreference: "default",
+      });
     } catch {
       const timer = window.setTimeout(() => setAvailable(false), 0);
       return () => window.clearTimeout(timer);
@@ -205,15 +279,46 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
     camera.position.set(0, 2.95, 12.3);
     camera.lookAt(cameraTarget);
 
-    const wall = new THREE.MeshStandardMaterial({ color: 0x987c74, roughness: 1 });
-    const wallAccent = new THREE.MeshStandardMaterial({ color: 0x694a4b, roughness: 1 });
+    const wall = new THREE.MeshStandardMaterial({
+      color: 0x987c74,
+      roughness: 1,
+    });
+    const wallAccent = new THREE.MeshStandardMaterial({
+      color: 0x694a4b,
+      roughness: 1,
+    });
     const woodTexture = createWoodTexture();
-    const wood = new THREE.MeshStandardMaterial({ color: 0xe4c3a4, map: woodTexture, roughness: 0.69, metalness: 0.025, bumpMap: woodTexture, bumpScale: 0.018 });
-    const woodDark = new THREE.MeshStandardMaterial({ color: 0x3b241c, roughness: 0.85 });
-    const black = new THREE.MeshStandardMaterial({ color: 0x161615, roughness: 0.38, metalness: 0.18 });
-    const vinyl = new THREE.MeshStandardMaterial({ color: 0x0b0b0d, roughness: 0.24, metalness: 0.3 });
-    const silver = new THREE.MeshStandardMaterial({ color: 0xb6ada0, roughness: 0.28, metalness: 0.8 });
-    const cream = new THREE.MeshStandardMaterial({ color: 0xf2eee6, roughness: 0.97 });
+    const wood = new THREE.MeshStandardMaterial({
+      color: 0xe4c3a4,
+      map: woodTexture,
+      roughness: 0.69,
+      metalness: 0.025,
+      bumpMap: woodTexture,
+      bumpScale: 0.018,
+    });
+    const woodDark = new THREE.MeshStandardMaterial({
+      color: 0x3b241c,
+      roughness: 0.85,
+    });
+    const black = new THREE.MeshStandardMaterial({
+      color: 0x161615,
+      roughness: 0.38,
+      metalness: 0.18,
+    });
+    const vinyl = new THREE.MeshStandardMaterial({
+      color: 0x0b0b0d,
+      roughness: 0.24,
+      metalness: 0.3,
+    });
+    const silver = new THREE.MeshStandardMaterial({
+      color: 0xb6ada0,
+      roughness: 0.28,
+      metalness: 0.8,
+    });
+    const cream = new THREE.MeshStandardMaterial({
+      color: 0xf2eee6,
+      roughness: 0.97,
+    });
     const warmLight = new THREE.MeshBasicMaterial({ color: 0xffbb76 });
 
     box(scene, 30, 14, 0.2, wall, [0, 0.4, -4.2]);
@@ -248,21 +353,37 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
     }
 
     const textureLoader = new THREE.TextureLoader();
-    const coverFaces: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshStandardMaterial>[] = [];
-    const coverTextures: (THREE.Texture | null)[] = Array.from({ length: SLOT_POSITIONS.length }, () => null);
-    const coverSources: string[] = Array.from({ length: SLOT_POSITIONS.length }, () => "");
-    const coverRequests: number[] = Array.from({ length: SLOT_POSITIONS.length }, () => 0);
+    const coverFaces: THREE.Mesh<
+      THREE.PlaneGeometry,
+      THREE.MeshBasicMaterial
+    >[] = [];
+    const coverTextures: (THREE.Texture | null)[] = Array.from(
+      { length: SLOT_POSITIONS.length },
+      () => null,
+    );
+    const coverSources: string[] = Array.from(
+      { length: SLOT_POSITIONS.length },
+      () => "",
+    );
+    const coverRequests: number[] = Array.from(
+      { length: SLOT_POSITIONS.length },
+      () => 0,
+    );
     let disposed = false;
     textureLoader.setCrossOrigin("anonymous");
     SLOT_POSITIONS.forEach(([x, y], index) => {
-      const sleeve = box(scene, 1.57, 1.57, 0.065, cream.clone(), [x, y, -2.62]);
+      const sleeve = box(scene, 1.57, 1.57, 0.065, cream.clone(), [
+        x,
+        y,
+        -2.62,
+      ]);
       sleeve.userData.slotIndex = index;
       hitTargets.push(sleeve);
       sleeveMeshes.push(sleeve);
       box(scene, 1.62, 0.042, 0.2, woodDark, [x, y - 0.81, -2.52]);
       const coverFace = new THREE.Mesh(
         new THREE.PlaneGeometry(1.55, 1.55),
-        new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.72 }),
+        new THREE.MeshBasicMaterial({ color: 0xfbf6f0, toneMapped: false }),
       );
       coverFace.position.z = 0.034;
       coverFace.visible = false;
@@ -270,7 +391,6 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
       coverFaces.push(coverFace);
     });
 
-    // The cabinet is deliberately almost as wide as the fixed camera frame.
     box(scene, 14.2, 0.22, 2.56, wood, [0, -1.25, 0.95]);
     box(scene, 14.0, 1.9, 2.23, wood, [0, -2.31, 0.79]);
     box(scene, 14.2, 0.15, 2.4, woodDark, [0, -3.28, 0.9]);
@@ -301,7 +421,11 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
     for (const radius of [0.48, 0.62, 0.75, 0.87]) {
       const groove = new THREE.Mesh(
         new THREE.TorusGeometry(radius, 0.002, 6, 100),
-        new THREE.MeshBasicMaterial({ color: 0x4b4946, transparent: true, opacity: 0.65 }),
+        new THREE.MeshBasicMaterial({
+          color: 0x4b4946,
+          transparent: true,
+          opacity: 0.65,
+        }),
       );
       groove.rotation.x = -Math.PI / 2;
       groove.position.y = 0.021;
@@ -309,12 +433,19 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
     }
     // Asymmetric, very subtle groove highlights make the entire black disc's spin legible.
     for (const [radius, angle, arc] of [
-      [0.53, 0.15, 0.48], [0.68, 1.42, 0.37], [0.81, 2.63, 0.54],
-      [0.92, 4.18, 0.35], [0.58, 5.24, 0.31],
+      [0.53, 0.15, 0.48],
+      [0.68, 1.42, 0.37],
+      [0.81, 2.63, 0.54],
+      [0.92, 4.18, 0.35],
+      [0.58, 5.24, 0.31],
     ]) {
       const glint = new THREE.Mesh(
         new THREE.TorusGeometry(radius, 0.006, 4, 32, arc),
-        new THREE.MeshBasicMaterial({ color: 0x85817a, transparent: true, opacity: 0.24 }),
+        new THREE.MeshBasicMaterial({
+          color: 0x85817a,
+          transparent: true,
+          opacity: 0.24,
+        }),
       );
       glint.rotation.x = -Math.PI / 2;
       glint.rotation.z = angle;
@@ -328,25 +459,58 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
     label.position.y = 0.022;
     record.add(label);
     // A small printed label detail makes the rotation visible without adding album artwork.
-    const labelInk = new THREE.MeshStandardMaterial({ color: 0x594134, roughness: 1 });
+    const labelInk = new THREE.MeshStandardMaterial({
+      color: 0x594134,
+      roughness: 1,
+    });
     box(record, 0.27, 0.003, 0.028, labelInk, [0, 0.043, -0.12]);
     box(record, 0.17, 0.003, 0.014, labelInk, [0, 0.043, -0.17]);
     cylinder(record, 0.024, 0.075, silver, [0, 0.064, 0]);
 
     const tonearm = new THREE.Group();
-    tonearm.position.set(1.64, 0.24, -0.73);
+    // The pivot stays seated on the deck; only the arm itself lifts when playback changes.
+    tonearm.position.set(1.64, 0.205, -0.73);
     deck.add(tonearm);
     cylinder(tonearm, 0.2, 0.13, silver, [0, 0, 0]);
-    rod(tonearm, new THREE.Vector3(0, 0.12, 0), new THREE.Vector3(-0.2, 0.19, 0.4), 0.034, silver);
-    rod(tonearm, new THREE.Vector3(-0.2, 0.19, 0.4), new THREE.Vector3(-1.05, 0.18, 1.28), 0.025, silver);
-    box(tonearm, 0.17, 0.11, 0.25, black, [-1.1, 0.14, 1.34]);
-    rod(tonearm, new THREE.Vector3(-1.1, 0.09, 1.36), new THREE.Vector3(-1.1, 0.04, 1.36), 0.012, silver);
+    cylinder(tonearm, 0.055, 0.22, silver, [0, 0.1, 0], 24);
+    const armLift = new THREE.Group();
+    armLift.position.y = playingRef.current ? 0.035 : -0.04;
+    tonearm.add(armLift);
+    rod(
+      armLift,
+      new THREE.Vector3(0, 0.12, 0),
+      new THREE.Vector3(-0.2, 0.19, 0.4),
+      0.034,
+      silver,
+    );
+    rod(
+      armLift,
+      new THREE.Vector3(-0.2, 0.19, 0.4),
+      new THREE.Vector3(-1.05, 0.18, 1.28),
+      0.025,
+      silver,
+    );
+    box(armLift, 0.17, 0.11, 0.25, black, [-1.1, 0.14, 1.34]);
+    rod(
+      armLift,
+      new THREE.Vector3(-1.1, 0.09, 1.36),
+      new THREE.Vector3(-1.1, 0.04, 1.36),
+      0.012,
+      silver,
+    );
     const tonearmHit = new THREE.Mesh(
       new THREE.SphereGeometry(0.23, 12, 8),
-      new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
+      new THREE.MeshBasicMaterial({
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+      }),
     );
     tonearmHit.position.set(-1.08, 0.15, 1.31);
-    tonearm.add(tonearmHit);
+    armLift.add(tonearmHit);
+    // The cradle meets the parked arm just behind its cartridge; the stylus hangs clear.
+    cylinder(deck, 0.04, 0.19, silver, [0.865, 0.233, 0.733], 16);
+    box(deck, 0.15, 0.025, 0.08, black, [0.865, 0.335, 0.733]);
 
     const knobs = [-1.82, 1.77];
     for (const x of knobs) {
@@ -365,11 +529,19 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
     let frame = 0;
     let lastFrameTime = 0;
     let isPlaying = playingRef.current;
-    const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const motionPreference = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    );
     let reduceMotion = motionPreference.matches;
     let tonearmTarget = isPlaying ? -0.68 : 0.2;
-    let tonearmHeightTarget = isPlaying ? 0.24 : 0.34;
-    let pointerDown: { index: number | null; x: number; y: number; dragging: boolean; coverSize: number } | null = null;
+    let tonearmHeightTarget = isPlaying ? 0.035 : -0.04;
+    let pointerDown: {
+      index: number | null;
+      x: number;
+      y: number;
+      dragging: boolean;
+      coverSize: number;
+    } | null = null;
     let projectedSlotRects: SlotRect[] = [];
     let currentDragTarget: number | null = null;
     let highlightedSlot: number | null = null;
@@ -380,15 +552,16 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
     } | null = null;
 
     function requestRender() {
-      if (!disposed && !frame && !document.hidden) frame = requestAnimationFrame(animate);
+      if (!disposed && !frame && !document.hidden)
+        frame = requestAnimationFrame(animate);
     }
     function setPlaying(value: boolean) {
       isPlaying = value;
       tonearmTarget = value ? -0.68 : 0.2;
-      tonearmHeightTarget = value ? 0.24 : 0.34;
+      tonearmHeightTarget = value ? 0.035 : -0.04;
       if (reduceMotion) {
         tonearm.rotation.y = tonearmTarget;
-        tonearm.position.y = tonearmHeightTarget;
+        armLift.position.y = tonearmHeightTarget;
       }
       indicator.visible = value;
       requestRender();
@@ -405,28 +578,52 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
         face.material.map = null;
         face.material.needsUpdate = true;
         face.visible = false;
-        if (!source) { requestRender(); return; }
+        if (!source) {
+          requestRender();
+          return;
+        }
         let pendingTexture: THREE.Texture | null = null;
-        pendingTexture = textureLoader.load(source, (texture) => {
-          if (disposed || coverRequests[index] !== requestId) { texture.dispose(); return; }
-          texture.colorSpace = THREE.SRGBColorSpace;
-          texture.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), 4);
-          coverTextures[index] = texture;
-          face.material.map = texture;
-          face.material.needsUpdate = true;
-          face.visible = true;
-          requestRender();
-        }, undefined, () => {
-          pendingTexture?.dispose();
-          requestRender();
-        });
+        pendingTexture = textureLoader.load(
+          source,
+          (texture) => {
+            if (disposed || coverRequests[index] !== requestId) {
+              texture.dispose();
+              return;
+            }
+            texture.colorSpace = THREE.SRGBColorSpace;
+            texture.anisotropy = Math.min(
+              renderer.capabilities.getMaxAnisotropy(),
+              4,
+            );
+            coverTextures[index] = texture;
+            face.material.map = texture;
+            face.material.needsUpdate = true;
+            face.visible = true;
+            requestRender();
+          },
+          undefined,
+          () => {
+            pendingTexture?.dispose();
+            requestRender();
+          },
+        );
         requestRender();
       });
     }
     function swapLoadedCovers(from: number, to: number) {
-      if ((coverSources[from] && !coverTextures[from]) || (coverSources[to] && !coverTextures[to])) return;
-      [coverSources[from], coverSources[to]] = [coverSources[to], coverSources[from]];
-      [coverTextures[from], coverTextures[to]] = [coverTextures[to], coverTextures[from]];
+      if (
+        (coverSources[from] && !coverTextures[from]) ||
+        (coverSources[to] && !coverTextures[to])
+      )
+        return;
+      [coverSources[from], coverSources[to]] = [
+        coverSources[to],
+        coverSources[from],
+      ];
+      [coverTextures[from], coverTextures[to]] = [
+        coverTextures[to],
+        coverTextures[from],
+      ];
       coverRequests[from] += 1;
       coverRequests[to] += 1;
       for (const index of [from, to]) {
@@ -442,28 +639,42 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
         scene.remove(animation.mesh);
         animation.mesh.geometry.dispose();
       }
-      const moving = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.025, 64), vinyl);
+      const moving = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.7, 0.7, 0.025, 64),
+        vinyl,
+      );
       moving.castShadow = true;
       moving.position.copy(source.position);
       moving.rotation.x = Math.PI / 2;
       scene.add(moving);
-      animation = { mesh: moving, from: source.position.clone(), start: performance.now() };
+      animation = {
+        mesh: moving,
+        from: source.position.clone(),
+        start: performance.now(),
+      };
       requestRender();
     }
 
-    function getHit(event: { clientX: number; clientY: number }): { kind: "slot"; index: number } | { kind: "tonearm" } | null {
+    function getHit(event: {
+      clientX: number;
+      clientY: number;
+    }): { kind: "slot"; index: number } | { kind: "tonearm" } | null {
       const bounds = renderer.domElement.getBoundingClientRect();
       pointer.set(
         ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
         -((event.clientY - bounds.top) / bounds.height) * 2 + 1,
       );
       raycaster.setFromCamera(pointer, camera);
-      const intersections = raycaster.intersectObjects([...hitTargets, tonearm], true);
+      const intersections = raycaster.intersectObjects(
+        [...hitTargets, tonearm],
+        true,
+      );
       for (const intersection of intersections) {
         let object: THREE.Object3D | null = intersection.object;
         while (object && object !== scene) {
           if (object === tonearm) return { kind: "tonearm" };
-          if (typeof object.userData.slotIndex === "number") return { kind: "slot", index: object.userData.slotIndex };
+          if (typeof object.userData.slotIndex === "number")
+            return { kind: "slot", index: object.userData.slotIndex };
           object = object.parent;
         }
       }
@@ -471,9 +682,15 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
     }
     function highlightSlot(index: number | null) {
       if (highlightedSlot === index) return;
-      if (highlightedSlot !== null) (sleeveMeshes[highlightedSlot].material as THREE.MeshStandardMaterial).emissive.setHex(0x000000);
+      if (highlightedSlot !== null)
+        (
+          sleeveMeshes[highlightedSlot].material as THREE.MeshStandardMaterial
+        ).emissive.setHex(0x000000);
       highlightedSlot = index;
-      if (index !== null) (sleeveMeshes[index].material as THREE.MeshStandardMaterial).emissive.setHex(0x684027);
+      if (index !== null)
+        (
+          sleeveMeshes[index].material as THREE.MeshStandardMaterial
+        ).emissive.setHex(0x684027);
       requestRender();
     }
     function setSourceLifted(index: number, lifted: boolean) {
@@ -481,10 +698,19 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
       coverFaces[index].visible = !lifted && Boolean(coverTextures[index]);
       requestRender();
     }
-    function wallDragTarget(event: { clientX: number; clientY: number }, source: number, coverSize: number) {
+    function wallDragTarget(
+      event: { clientX: number; clientY: number },
+      source: number,
+      coverSize: number,
+    ) {
       const bounds = renderer.domElement.getBoundingClientRect();
-      return findWallDropTarget(event.clientX - bounds.left, event.clientY - bounds.top,
-        coverSize, projectedSlotRects, source);
+      return findWallDropTarget(
+        event.clientX - bounds.left,
+        event.clientY - bounds.top,
+        coverSize,
+        projectedSlotRects,
+        source,
+      );
     }
     function clearWallDrag(source: number | null, lifted: boolean) {
       if (lifted && source !== null) setSourceLifted(source, false);
@@ -495,15 +721,33 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
       renderer.domElement.style.cursor = "default";
     }
     function handlePointerMove(event: PointerEvent) {
-      if (pointerDown?.index !== null && pointerDown?.index !== undefined && slotsRef.current[pointerDown.index]) {
-        if (pointerDown.dragging || Math.hypot(event.clientX - pointerDown.x, event.clientY - pointerDown.y) > 6) {
+      if (
+        pointerDown?.index !== null &&
+        pointerDown?.index !== undefined &&
+        slotsRef.current[pointerDown.index]
+      ) {
+        if (
+          pointerDown.dragging ||
+          Math.hypot(
+            event.clientX - pointerDown.x,
+            event.clientY - pointerDown.y,
+          ) > 6
+        ) {
           if (!pointerDown.dragging) {
             pointerDown.dragging = true;
             setSourceLifted(pointerDown.index, true);
-            setDragPreview({ x: event.clientX, y: event.clientY, size: pointerDown.coverSize,
-              album: slotsRef.current[pointerDown.index]! });
+            setDragPreview({
+              x: event.clientX,
+              y: event.clientY,
+              size: pointerDown.coverSize,
+              album: slotsRef.current[pointerDown.index]!,
+            });
           }
-          const target = wallDragTarget(event, pointerDown.index, pointerDown.coverSize);
+          const target = wallDragTarget(
+            event,
+            pointerDown.index,
+            pointerDown.coverSize,
+          );
           if (target !== currentDragTarget) {
             currentDragTarget = target;
             setDragTarget(target);
@@ -523,8 +767,20 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
       if (event.button !== 0) return;
       const hit = getHit(event);
       const index = hit?.kind === "slot" ? hit.index : null;
-      const coverSize = index === null ? 0 : Math.max(84, Math.min(150, (projectedSlotRects[index]?.width ?? 110) * 0.9));
-      pointerDown = { index, x: event.clientX, y: event.clientY, dragging: false, coverSize };
+      const coverSize =
+        index === null
+          ? 0
+          : Math.max(
+              84,
+              Math.min(150, (projectedSlotRects[index]?.width ?? 110) * 0.9),
+            );
+      pointerDown = {
+        index,
+        x: event.clientX,
+        y: event.clientY,
+        dragging: false,
+        coverSize,
+      };
       renderer.domElement.setPointerCapture(event.pointerId);
       if (hit?.kind === "tonearm") onTonearmClickRef.current();
     }
@@ -532,7 +788,8 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
       if (!pointerDown) return;
       const start = pointerDown;
       pointerDown = null;
-      if (renderer.domElement.hasPointerCapture(event.pointerId)) renderer.domElement.releasePointerCapture(event.pointerId);
+      if (renderer.domElement.hasPointerCapture(event.pointerId))
+        renderer.domElement.releasePointerCapture(event.pointerId);
       if (start.dragging && start.index !== null) {
         const target = wallDragTarget(event, start.index, start.coverSize);
         clearWallDrag(start.index, true);
@@ -544,11 +801,13 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
       }
       const hit = getHit(event);
       clearWallDrag(null, false);
-      if (hit?.kind === "slot" && hit.index === start.index) onSlotClickRef.current(hit.index);
+      if (hit?.kind === "slot" && hit.index === start.index)
+        onSlotClickRef.current(hit.index);
       else if (!hit && start.index === null) onBackgroundClickRef.current();
     }
     function handlePointerCancel() {
-      if (pointerDown?.dragging && pointerDown.index !== null) setSourceLifted(pointerDown.index, false);
+      if (pointerDown?.dragging && pointerDown.index !== null)
+        setSourceLifted(pointerDown.index, false);
       pointerDown = null;
       clearWallDrag(null, false);
     }
@@ -560,7 +819,9 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
       event.dataTransfer.dropEffect = target === null ? "none" : "copy";
       if (target !== null) event.preventDefault();
     }
-    function clearSearchDragHighlight() { highlightSlot(null); }
+    function clearSearchDragHighlight() {
+      highlightSlot(null);
+    }
     function handleSearchAlbumDrop(event: DragEvent) {
       const albumId = event.dataTransfer?.getData(SEARCH_ALBUM_DRAG_TYPE);
       const hit = getHit(event);
@@ -590,13 +851,19 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
       camera.lookAt(cameraTarget);
       renderer.setSize(width, height, false);
       projectedSlotRects = SLOT_POSITIONS.map(([x, y]) => {
-        const leftTop = new THREE.Vector3(x - 0.81, y + 0.81, -2.58).project(camera);
-        const rightBottom = new THREE.Vector3(x + 0.81, y - 0.81, -2.58).project(camera);
+        const leftTop = new THREE.Vector3(x - 0.81, y + 0.81, -2.58).project(
+          camera,
+        );
+        const rightBottom = new THREE.Vector3(
+          x + 0.81,
+          y - 0.81,
+          -2.58,
+        ).project(camera);
         return {
-          left: (leftTop.x + 1) * width / 2,
-          top: (1 - leftTop.y) * height / 2,
-          width: (rightBottom.x - leftTop.x) * width / 2,
-          height: (leftTop.y - rightBottom.y) * height / 2,
+          left: ((leftTop.x + 1) * width) / 2,
+          top: ((1 - leftTop.y) * height) / 2,
+          width: ((rightBottom.x - leftTop.x) * width) / 2,
+          height: ((leftTop.y - rightBottom.y) * height) / 2,
         };
       });
       setSlotRects(projectedSlotRects);
@@ -608,15 +875,25 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
 
     function animate(time: number) {
       frame = 0;
-      if (document.hidden) { lastFrameTime = 0; return; }
-      const elapsedSeconds = lastFrameTime ? Math.min((time - lastFrameTime) / 1000, 0.05) : 0;
+      if (document.hidden) {
+        lastFrameTime = 0;
+        return;
+      }
+      const elapsedSeconds = lastFrameTime
+        ? Math.min((time - lastFrameTime) / 1000, 0.05)
+        : 0;
       lastFrameTime = time;
-      if (isPlaying && !reduceMotion) record.rotation.y += RECORD_RADIANS_PER_SECOND * elapsedSeconds;
-      const armMoving = !reduceMotion && (Math.abs(tonearm.rotation.y - tonearmTarget) > 0.002 || Math.abs(tonearm.position.y - tonearmHeightTarget) > 0.002);
+      if (isPlaying && !reduceMotion)
+        record.rotation.y += RECORD_RADIANS_PER_SECOND * elapsedSeconds;
+      const armMoving =
+        !reduceMotion &&
+        (Math.abs(tonearm.rotation.y - tonearmTarget) > 0.002 ||
+          Math.abs(armLift.position.y - tonearmHeightTarget) > 0.002);
       if (armMoving) {
         const fraction = Math.min(1, elapsedSeconds * 12);
         tonearm.rotation.y += (tonearmTarget - tonearm.rotation.y) * fraction;
-        tonearm.position.y += (tonearmHeightTarget - tonearm.position.y) * fraction;
+        armLift.position.y +=
+          (tonearmHeightTarget - armLift.position.y) * fraction;
       }
       if (animation) {
         const elapsed = Math.min(1, (time - animation.start) / 850);
@@ -627,7 +904,7 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
           eased,
         );
         animation.mesh.position.y += Math.sin(elapsed * Math.PI) * 0.8;
-        animation.mesh.rotation.x = Math.PI / 2 * (1 - eased);
+        animation.mesh.rotation.x = (Math.PI / 2) * (1 - eased);
         animation.mesh.rotation.y = elapsed * 0.35;
         animation.mesh.scale.setScalar(1 - 0.08 * eased);
         if (elapsed >= 1) {
@@ -637,13 +914,25 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
         }
       }
       renderer.render(scene, camera);
-      if ((isPlaying && !reduceMotion) || animation || armMoving) requestRender();
+      if ((isPlaying && !reduceMotion) || animation || armMoving)
+        requestRender();
     }
-    const visibilityChanged = () => { lastFrameTime = 0; requestRender(); };
-    const motionChanged = () => { reduceMotion = motionPreference.matches; setPlaying(isPlaying); };
+    const visibilityChanged = () => {
+      lastFrameTime = 0;
+      requestRender();
+    };
+    const motionChanged = () => {
+      reduceMotion = motionPreference.matches;
+      setPlaying(isPlaying);
+    };
     document.addEventListener("visibilitychange", visibilityChanged);
     motionPreference.addEventListener("change", motionChanged);
-    controlsRef.current = { setPlaying, animateRecord, updateSlots, highlightSlot };
+    controlsRef.current = {
+      setPlaying,
+      animateRecord,
+      updateSlots,
+      highlightSlot,
+    };
     setPlaying(playingRef.current);
     updateSlots(slotsRef.current);
     requestRender();
@@ -658,16 +947,24 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
       renderer.domElement.removeEventListener("pointermove", handlePointerMove);
       renderer.domElement.removeEventListener("pointerdown", handlePointerDown);
       renderer.domElement.removeEventListener("pointerup", handlePointerUp);
-      renderer.domElement.removeEventListener("pointercancel", handlePointerCancel);
+      renderer.domElement.removeEventListener(
+        "pointercancel",
+        handlePointerCancel,
+      );
       renderer.domElement.removeEventListener("dragover", handleSearchDragOver);
-      renderer.domElement.removeEventListener("dragleave", clearSearchDragHighlight);
+      renderer.domElement.removeEventListener(
+        "dragleave",
+        clearSearchDragHighlight,
+      );
       renderer.domElement.removeEventListener("drop", handleSearchAlbumDrop);
       window.removeEventListener("dragend", clearSearchDragHighlight);
       const materials = new Set<THREE.Material>();
       scene.traverse((object) => {
         if (!(object instanceof THREE.Mesh)) return;
         object.geometry.dispose();
-        const meshMaterials = Array.isArray(object.material) ? object.material : [object.material];
+        const meshMaterials = Array.isArray(object.material)
+          ? object.material
+          : [object.material];
         meshMaterials.forEach((material) => materials.add(material));
       });
       materials.forEach((material) => material.dispose());
@@ -679,7 +976,9 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
   }, []);
 
   function focusSlot(index: number) {
-    mountRef.current?.querySelector<HTMLButtonElement>(`[data-wall-slot="${index}"]`)?.focus();
+    mountRef.current
+      ?.querySelector<HTMLButtonElement>(`[data-wall-slot="${index}"]`)
+      ?.focus();
   }
 
   function activateSlot(index: number) {
@@ -694,12 +993,25 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
     onSlotClick(index);
   }
 
-  function handleSlotKey(event: React.KeyboardEvent<HTMLButtonElement>, index: number) {
-    const next = event.key === "ArrowRight" ? Math.min(7, index + 1)
-      : event.key === "ArrowLeft" ? Math.max(0, index - 1)
-        : event.key === "ArrowDown" ? Math.min(7, index + 4)
-          : event.key === "ArrowUp" ? Math.max(0, index - 4) : null;
-    if (next !== null) { event.preventDefault(); focusSlot(next); return; }
+  function handleSlotKey(
+    event: React.KeyboardEvent<HTMLButtonElement>,
+    index: number,
+  ) {
+    const next =
+      event.key === "ArrowRight"
+        ? Math.min(7, index + 1)
+        : event.key === "ArrowLeft"
+          ? Math.max(0, index - 1)
+          : event.key === "ArrowDown"
+            ? Math.min(7, index + 4)
+            : event.key === "ArrowUp"
+              ? Math.max(0, index - 4)
+              : null;
+    if (next !== null) {
+      event.preventDefault();
+      focusSlot(next);
+      return;
+    }
     if (event.key === "Escape" && keyboardMoveFrom !== null) {
       event.preventDefault();
       event.stopPropagation();
@@ -709,18 +1021,39 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
     }
     if (event.key !== " ") return;
     event.preventDefault();
-    if (keyboardMoveFrom !== null) { activateSlot(index); return; }
-    if (!slots[index]) { onSlotClick(index); return; }
+    if (keyboardMoveFrom !== null) {
+      activateSlot(index);
+      return;
+    }
+    if (!slots[index]) {
+      onSlotClick(index);
+      return;
+    }
     setKeyboardMoveFrom(index);
-    setAnnouncement(`Picked up ${slots[index]?.title}. Choose another spot and press Enter or Space.`);
+    setAnnouncement(
+      `Picked up ${slots[index]?.title}. Choose another spot and press Enter or Space.`,
+    );
   }
 
   return (
     <div className="scene-mount" ref={mountRef}>
-      {!available && <div className="webgl-fallback">Your browser needs WebGL to display the 3D room.</div>}
-      <p id="wall-keyboard-help" className="sr-only">Use arrow keys to move between wall spots. Press Enter to open a record. Press Space to pick up a record, then Enter or Space on another spot to move or swap it. Escape cancels.</p>
-      <span className="sr-only" role="status" aria-live="polite">{announcement}</span>
-      <div className={`wall-keyboard ${available ? "" : "fallback"}`} aria-label="Album wall">
+      {!available && (
+        <div className="webgl-fallback">
+          Your browser needs WebGL to display the 3D room.
+        </div>
+      )}
+      <p id="wall-keyboard-help" className="sr-only">
+        Use arrow keys to move between wall spots. Press Enter to open a record.
+        Press Space to pick up a record, then Enter or Space on another spot to
+        move or swap it. Escape cancels.
+      </p>
+      <span className="sr-only" role="status" aria-live="polite">
+        {announcement}
+      </span>
+      <div
+        className={`wall-keyboard ${available ? "" : "fallback"}`}
+        aria-label="Album wall"
+      >
         {SLOT_POSITIONS.map((_, index) => (
           <button
             key={index}
@@ -733,31 +1066,52 @@ export default function VinylRoomScene({ slots, playing, activeAlbumUri, onSlotC
             aria-pressed={keyboardMoveFrom === index}
             onClick={() => activateSlot(index)}
             onDragOver={(event) => {
-              if (!available || !event.dataTransfer.types.includes(SEARCH_ALBUM_DRAG_TYPE)) return;
+              if (
+                !available ||
+                !event.dataTransfer.types.includes(SEARCH_ALBUM_DRAG_TYPE)
+              )
+                return;
               event.preventDefault();
               event.dataTransfer.dropEffect = "copy";
             }}
             onDrop={(event) => {
               if (!available) {
-                const albumId = event.dataTransfer.getData(SEARCH_ALBUM_DRAG_TYPE);
-                if (albumId) { event.preventDefault(); onSearchAlbumDrop(index, albumId); }
+                const albumId = event.dataTransfer.getData(
+                  SEARCH_ALBUM_DRAG_TYPE,
+                );
+                if (albumId) {
+                  event.preventDefault();
+                  onSearchAlbumDrop(index, albumId);
+                }
               }
             }}
             onKeyDown={(event) => handleSlotKey(event, index)}
             onFocus={() => controlsRef.current?.highlightSlot(index)}
             onBlur={() => controlsRef.current?.highlightSlot(null)}
-          >{!available ? `Spot ${index + 1}: ${slots[index]?.title ?? "empty"}` : null}</button>
+          >
+            {!available
+              ? `Spot ${index + 1}: ${slots[index]?.title ?? "empty"}`
+              : null}
+          </button>
         ))}
       </div>
       {dragPreview && (
-        <div ref={dragPreviewRef} className="wall-drag-preview" style={{
-          width: dragPreview.size, height: dragPreview.size,
-          transform: `translate3d(${dragPreview.x}px, ${dragPreview.y}px, 0) translate(-50%, -50%)`,
-        }} aria-hidden="true">
+        <div
+          ref={dragPreviewRef}
+          className="wall-drag-preview"
+          style={{
+            width: dragPreview.size,
+            height: dragPreview.size,
+            transform: `translate3d(${dragPreview.x}px, ${dragPreview.y}px, 0) translate(-50%, -50%)`,
+          }}
+          aria-hidden="true"
+        >
           {dragPreview.album.image ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={dragPreview.album.image} alt="" />
-          ) : <span />}
+          ) : (
+            <span />
+          )}
         </div>
       )}
     </div>
