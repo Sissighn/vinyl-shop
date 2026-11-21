@@ -468,49 +468,31 @@ export default function VinylRoomScene({
     cylinder(record, 0.024, 0.075, silver, [0, 0.064, 0]);
 
     const tonearm = new THREE.Group();
-    // The pivot stays seated on the deck; only the arm itself lifts when playback changes.
-    tonearm.position.set(1.64, 0.205, -0.73);
+    // Seat the pivot directly on the deck and keep the arm compact beside the platter.
+    tonearm.position.set(1.54, 0.19, -0.65);
     deck.add(tonearm);
-    cylinder(tonearm, 0.2, 0.13, silver, [0, 0, 0]);
-    cylinder(tonearm, 0.055, 0.22, silver, [0, 0.1, 0], 24);
+    cylinder(tonearm, 0.155, 0.105, silver, [0, 0, 0]);
     const armLift = new THREE.Group();
-    armLift.position.y = playingRef.current ? 0.035 : -0.04;
+    armLift.position.y = playingRef.current ? 0.06 : -0.075;
     tonearm.add(armLift);
     rod(
       armLift,
-      new THREE.Vector3(0, 0.12, 0),
-      new THREE.Vector3(-0.2, 0.19, 0.4),
-      0.034,
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(-0.9, 0.07, 1.1),
+      0.02,
       silver,
     );
-    rod(
-      armLift,
-      new THREE.Vector3(-0.2, 0.19, 0.4),
-      new THREE.Vector3(-1.05, 0.18, 1.28),
-      0.025,
-      silver,
-    );
-    box(armLift, 0.17, 0.11, 0.25, black, [-1.1, 0.14, 1.34]);
-    rod(
-      armLift,
-      new THREE.Vector3(-1.1, 0.09, 1.36),
-      new THREE.Vector3(-1.1, 0.04, 1.36),
-      0.012,
-      silver,
-    );
+    box(armLift, 0.12, 0.07, 0.17, black, [-0.94, 0.075, 1.16]);
     const tonearmHit = new THREE.Mesh(
-      new THREE.SphereGeometry(0.23, 12, 8),
+      new THREE.SphereGeometry(0.17, 12, 8),
       new THREE.MeshBasicMaterial({
         transparent: true,
         opacity: 0,
         depthWrite: false,
       }),
     );
-    tonearmHit.position.set(-1.08, 0.15, 1.31);
+    tonearmHit.position.set(-0.92, 0.07, 1.12);
     armLift.add(tonearmHit);
-    // The cradle meets the parked arm just behind its cartridge; the stylus hangs clear.
-    cylinder(deck, 0.04, 0.19, silver, [0.865, 0.233, 0.733], 16);
-    box(deck, 0.15, 0.025, 0.08, black, [0.865, 0.335, 0.733]);
 
     const knobs = [-1.82, 1.77];
     for (const x of knobs) {
@@ -534,7 +516,7 @@ export default function VinylRoomScene({
     );
     let reduceMotion = motionPreference.matches;
     let tonearmTarget = isPlaying ? -0.68 : 0.2;
-    let tonearmHeightTarget = isPlaying ? 0.035 : -0.04;
+    let tonearmHeightTarget = isPlaying ? 0.06 : -0.075;
     let pointerDown: {
       index: number | null;
       x: number;
@@ -558,7 +540,7 @@ export default function VinylRoomScene({
     function setPlaying(value: boolean) {
       isPlaying = value;
       tonearmTarget = value ? -0.68 : 0.2;
-      tonearmHeightTarget = value ? 0.035 : -0.04;
+      tonearmHeightTarget = value ? 0.06 : -0.075;
       if (reduceMotion) {
         tonearm.rotation.y = tonearmTarget;
         armLift.position.y = tonearmHeightTarget;
@@ -890,7 +872,7 @@ export default function VinylRoomScene({
         (Math.abs(tonearm.rotation.y - tonearmTarget) > 0.002 ||
           Math.abs(armLift.position.y - tonearmHeightTarget) > 0.002);
       if (armMoving) {
-        const fraction = Math.min(1, elapsedSeconds * 12);
+        const fraction = Math.min(1, elapsedSeconds * 24);
         tonearm.rotation.y += (tonearmTarget - tonearm.rotation.y) * fraction;
         armLift.position.y +=
           (tonearmHeightTarget - armLift.position.y) * fraction;
