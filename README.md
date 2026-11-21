@@ -26,8 +26,8 @@ Vinyl Room controls the Spotify desktop app; protected audio is not streamed ins
 ## Use the room
 
 - Click a wall album to browse its tracks. Click outside or press Escape to close the panel. Choosing another album does not interrupt the current song.
-- Open **Arrange Wall**, select one of the eight spots, then search and add or replace an album. Results show ten albums per page. Remove an album or undo your last wall change from the same panel.
-- Drag an album between spots to move or swap it. With a keyboard, focus a spot and press Space to pick it up, use the arrow keys to move, then press Enter or Space to drop. Escape cancels.
+- Open **Arrange Wall**, search for an album, then drag it from the results onto any wall spot to add or replace it. You can also select a spot and click a result. Results show ten albums per page. Remove an album or use **Undo** and **Redo** beside **Export** and **Import**. Click outside the panel, press Escape, or use its X to close it.
+- Drag a wall album so its cover overlaps another spot; the target lights up and the two albums swap when you release it. With a keyboard, focus a spot and press Space to pick it up, use the arrow keys to move, then press Enter or Space to drop. Escape cancels.
 - Use **Export** and **Import** in **Arrange Wall** to back up or restore your wall as JSON. Changes are also saved locally.
 - Click the tonearm or the compact player to pause or resume. Expand the player for seeking, previous/next, shuffle and repeat. The record's rotation follows Spotify playback state.
 
@@ -45,13 +45,15 @@ npm run dev
 
 Open `http://127.0.0.1:5173`. For Spotify sign-in in the browser, add `http://127.0.0.1:5173/api/spotify/callback` to the same Spotify app, then fill in `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` in `.env.local`. The browser uses server-side HTTP-only cookies; the Mac app uses PKCE and needs only the Client ID.
 
-For the Mac app during development, quit any running Vinyl Room app and run:
+For the Mac app during development, install the local launcher once:
 
 ```bash
-npm run desktop:dev
+npm run desktop:install-dev-launcher
 ```
 
-This opens the Electron window with a local Next.js development server. UI changes appear after saving without rebuilding the DMG. The Spotify Client ID is read from the same local app settings as the packaged version. The installed Mac app does not update from source edits; build a new DMG for a distributable version.
+The installer creates one local **Vinyl Room.app** in `~/Applications` and pins it to the Dock. Click **Vinyl Room** to open the current project code; no terminal command is needed for everyday use. It starts a local Next.js development server, so UI and API changes appear after saving without rebuilding a DMG. Quit and reopen the app after changing Electron's main process or desktop setup files. The app uses the same local Spotify settings and wall as the release build. Keep the project at its current path; rerun the installer if you move it or change the app icon or bootstrap. You can also launch development from a terminal with `npm run desktop:dev`.
+
+This local app reads the source folder each time it opens. It is separate from the distributable build under `release/mac-arm64/Vinyl Room.app`. Build a new DMG with `npm run desktop:package` only when preparing a version to install or share.
 
 Build and verify:
 
